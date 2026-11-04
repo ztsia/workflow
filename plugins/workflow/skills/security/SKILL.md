@@ -166,17 +166,18 @@ export async function updateNote(raw: unknown) {
 |---|---|---|
 | `<security checks>` (`CLAUDE.md` § Commands) | The dependency audit, a secret scan and the stack's security lint rules from the stack note, failing on any high or critical result | Every push in CI, and in QA's sweep |
 | `security-guidance` plugin | Hooks: an instant warning on each edit that matches a dangerous pattern, and a model review of each commit that traces data flow across files. It reads `.claude/claude-security-guidance.md` | Always on. The kit sets `ENABLE_STOP_REVIEW=0`, because parallel agents share one checkout |
-| `claude-security` plugin | A multi-agent scan whose findings are each challenged by independent verifiers before they're reported. Writes a report, JSONL and SARIF into `CLAUDE-SECURITY-<timestamp>/`, which ignores itself in git | QA, for a slice that touches a risky area (the `qa` skill); a whole-codebase scan before a release |
+| `security-review` (built into Claude Code) | One reviewer reads the branch's diff for exploitable flaws; each finding gets a second look for false positives | QA, every slice (the `qa` skill) |
+| `claude-security` plugin | A multi-agent scan whose findings are each challenged by independent verifiers before they're reported. Writes a report, JSONL and SARIF into `CLAUDE-SECURITY-<timestamp>/`, which ignores itself in git. Costly, and needs the Workflow tool | Once, a whole-codebase scan before launch |
 
 - **Answer every `security-guidance` warning:** fix it, or add a comment on the line saying why it's
   safe. Its reviewer reads such a comment as an exclusion, so the reason must be true and specific.
 - **Run `claude-security` without its menu** by naming the job, scope and effort and accepting the
-  cost in one request: *run Claude Security: scan changes on this branch against main at high
-  effort; the cost is accepted*. The main session runs it, since it drives its own agents.
+  cost in one request: *run Claude Security: scan the codebase at high effort; the cost is
+  accepted*. The main session runs it, since it drives its own agents.
 - **Cloud sessions don't install plugins.** The workflow plugin's `scripts/cloud-setup.sh` (README), set as the cloud
-  environment's setup script, places both plugins and this one where a session loads them. If `/claude-security` isn't
-  available in a session, queue the scan in `docs/local.md` and say so in the handoff; the
-  mechanical checks still run.
+  environment's setup script, places both plugins and this one where a session loads them. A cloud
+  session still has no Workflow tool, so the launch scan is queued in `docs/local.md` for a machine
+  that has one.
 
 ## What must be true before it is done
 
@@ -192,7 +193,7 @@ export async function updateNote(raw: unknown) {
 - [ ] New dependencies pass *Choosing a dependency*; the lockfile is committed; the audit passes
 - [ ] CI workflows changed in this work follow `docs/supply-chain.md`, *CI*
 - [ ] Every `security-guidance` warning is fixed or justified on its line
-- [ ] For a risky slice, QA's `claude-security` scan ran, or is queued in `docs/local.md`
+- [ ] QA's security review of the slice's diff ran, and its High and Medium findings are fixed
 
 ## Rules of thumb
 
