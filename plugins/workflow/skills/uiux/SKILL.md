@@ -165,7 +165,22 @@ Check every element, new or existing, for these. Fix them before calling the scr
 - Forms: `Field`, `FieldLabel` and `FieldError`, with the form library's state and a schema
   validator.
 - Mount `Sonner`'s `<Toaster />` once, in the app layout.
-- Charts: the `Chart` wrapper with a `chartConfig` that names token colours. No inline colours.
+- **One base library** (`radix`, `base` or `aria`), the one in `components.json`. Never mix two:
+  each has its own focus, press and portal model. Switching is a project decision with a full QA
+  run, since every component is re-added and its customisation redone; shadcn has no migration.
+  On React Aria, never let `NumberField` parse money: it reads a float.
+- **Charts, in this order:** (1) shadcn's `Chart` (`ChartContainer` with a `chartConfig` that names
+  token colours, `ChartTooltip`, `ChartLegend`) around Recharts, starting from the closest example
+  on ui.shadcn.com/charts; (2) plain Recharts inside `ChartContainer` when no example fits (a
+  reference line, a custom bar shape, a radial meter); (3) hand-drawn SVG or CSS only for what
+  Recharts can't draw, such as a calendar heatmap, with a comment saying why. No inline colours, no
+  second chart library. A one-value meter is `Progress`, customised, not a chart. Recharts weighs
+  about 110 KB gzipped: keep it in its own chunk, out of the first screen's code, with the chart's
+  box sized before it loads so nothing jumps.
+- **A chat with a model** (messages, prompt input, suggestions, tool results, confirmations,
+  sources and citations) starts from shadcn's AI Elements (ui.shadcn.com/docs/ai-elements), copied
+  in and customised in place like any component. Skip the coding-agent ones (model selector,
+  terminal, file tree, stack trace) unless the product is one.
 
 ## Checklist: every project
 

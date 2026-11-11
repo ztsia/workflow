@@ -71,10 +71,14 @@ a smaller one.
 short.** It holds the brief's template and checks, agents running at once, waiting on long runs and
 what to do on a miss. A brief that leaves thinking to the subagent is the main session's failure.
 
-**Choose the model per task**, by what's left once the brief is written: **Haiku at `high`**
-(`workflow:implementer`'s default) for anything the brief fully specifies; **Sonnet at `medium` or
-`high`** when what's left can't be written down in advance; **the main session itself** for a
-change under about 100 lines, a design call, or a non-negotiable's logic.
+**Plan first, build the seams, delegate the rest.** At a slice's start the main session plans it in
+units (the `brief` skill, step 1), builds only the foundations and seams itself (shared types and
+contracts, the building blocks, one finished example of each kind of unit, the non-negotiables'
+logic), and gives every other unit to a builder, choosing its model by what's left once the brief is
+written: **Haiku at `high`** (`workflow:implementer`'s default) for anything the brief fully
+specifies, sized to stay under about 100k tokens of context; **Sonnet at `medium` or `high`** when
+what's left can't be written down in advance. A builder with a question stops and asks it; the main
+session answers in the same conversation.
 
 | Agent | What it's for |
 |---|---|

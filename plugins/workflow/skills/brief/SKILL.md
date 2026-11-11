@@ -13,11 +13,25 @@ costs most and is there to think: it decides, then hands down work that is decid
 repetitive to be worth its price. **A brief that leaves thinking to the subagent is the main
 session's failure, not the model's.**
 
-## 1. Decide first
+## 1. Plan the slice in units, then decide
 
-Write down every decision the work needs before choosing who does it. If one can't be written yet,
-the work isn't ready to delegate: make that decision (ask the owner if it's theirs), or the task is
-one where what's left can't be written down in advance (step 2).
+**At the start of a slice, the main session plans it before building anything.** It splits the work
+into units and writes the plan where the next session can find it (the project says where):
+
+- **Each unit** is one builder's run: its outcome, the files it owns, what it copies, how it proves
+  it's done, and its model (step 2).
+- **The foundations and seams are the main session's own units, built first:** shared types and
+  contracts, the interfaces two units meet at, the building blocks others compose, one finished
+  example of each kind of unit, and the non-negotiables' logic. Everything else goes to builders.
+- **Order:** foundations, then the units that only copy them, in parallel where their files don't
+  overlap.
+- **Size a Haiku unit to stay under about 100k tokens of context**: what it reads, writes and runs.
+  A guide, not a cap. Split a bigger one along file lines, or give it to Sonnet when the size comes
+  from reasoning across much code rather than from volume.
+
+Then write down every decision each unit needs. If one can't be written yet, the unit isn't ready
+to delegate: make that decision (ask the owner if it's theirs), or the unit is one where what's left
+can't be written down in advance (step 2).
 
 ## 2. Choose the model, per task
 
@@ -32,8 +46,13 @@ one expensive one.
   honestly be written down: an unknown cause to find, a large body of unfamiliar code to reason
   across, output that sets a pattern before the main session can show one. Also after a second miss
   (step 5).
-- **The main session itself** for a change under about 100 lines, a design call, or a
-  non-negotiable's logic. Briefing and reviewing would cost more than doing.
+- **The main session itself** for the foundations and seams (step 1), a design call, a
+  non-negotiable's logic, and a fix of a few lines found while reviewing. Everything else is a unit
+  for a builder, even when the main session could write it quickly: its context is the slice's most
+  expensive.
+- **No advisor tool.** Claude Code's advisor is one setting for the whole session, can't be set per
+  agent, and is skipped for any agent stronger than it (checked 11 Nov 2026). A builder's question
+  goes to the main session instead (step 5).
 - `xhigh` and `max` only for a gain you have measured.
 
 ## 3. Write the brief
@@ -53,6 +72,8 @@ Environment: working directory <absolute path>; start with `pwd` and use only pa
              port <n>, its own; build folder <path>, its own; format only your own files;
              don't commit.
 Report: each file changed, each check's result, and anything the brief didn't settle.
+Questions: if a decision is missing, stop and ask it, with the options you see and the one you'd
+           pick; you'll get the answer in this same conversation.
 ```
 
 ## 4. Check it before sending
@@ -85,6 +106,10 @@ Each line below is a miss that happened because a brief left it unsaid:
 
 **Review every report and diff:** its file list, that it ran its checks, and the result itself. A
 report is a claim, not proof. Fix small things yourself, then commit.
+
+**A builder that stops with a question gets its answer in the same conversation** (SendMessage), so
+it keeps everything it has read. Answer only what's asked, add the line to the plan so the next unit
+has it, and treat the question as a line the brief left unsaid.
 
 When it fell short, **ask first what the brief left unsaid.** Usually it's the brief.
 

@@ -231,9 +231,9 @@ same way.
 The tiers below decide how a fix is re-checked; this decides who makes it, the way the `brief` skill
 sorts any work:
 
-- **The main session, itself (the usual case):** a fix under about 100 lines, one with a design
-  call in it, or one touching a non-negotiable. Most findings are these: small, spread across
-  files, each with a decision in it. Briefing and reviewing them would cost more than doing them.
+- **The main session decides every fix, and makes itself** only one of a few lines, one touching a
+  non-negotiable, or one whose design call can't be written down. Write each other fix's decision
+  down and batch the decided fixes into builder units, grouped by the files they touch.
 - **A new `workflow:implementer` (Haiku, `high`):** a fix already decided but long or repetitive,
   such as tests written to stated assertions, each proven against a deliberate break, or one change
   across many screens.
