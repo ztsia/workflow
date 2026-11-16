@@ -3,10 +3,14 @@
 // own doc source, and stamps components-index.md with the date and upstream commit. It writes into
 // the project's docs/workflow/uiux/ (or --out), whose files replace the plugin's, never into the
 // plugin's own folder. Run from the project root:
-//   node <skill folder>/scripts/refresh.mjs [--base radix|base|aria] [--framework next|vite|remix|astro|tanstack-start] [--out <dir>]
+//   node <skill folder>/scripts/refresh.mjs [--base radix|base|aria] [--framework next|vite|remix|astro|tanstack-start] [--out <dir>] [--local <shadcn-ui/ui checkout>]
+// It pulls the components, the AI Elements patterns, the utilities, the unstyled React primitives,
+// the theming, CLI, installation, dark-mode and forms docs, and writes a blocks index (docs/blocks.md).
+// --local reads a checkout instead of GitHub's API (for a proxy that refuses the API; a sparse clone
+// of apps/v4/content/docs and apps/v4/registry is enough).
 // The base and framework default to the project's components.json (via `npx shadcn info --json`)
 // when it can be read, else radix and next. Prints the components added, removed and changed, so
-// the session can update components-index.md. Needs Node 18+ and network access to GitHub.
+// the session can update components-index.md. Needs Node 18+ and network access to GitHub, or --local.
 import { readFile, writeFile, readdir, unlink, mkdir, copyFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
@@ -37,10 +41,23 @@ async function get(url, as = "json") {
   return as === "json" ? res.json() : res.text();
 }
 
-const sha = (await get(api("commits/main"))).sha;
-const listing = await get(api(`contents/${ROOT}/components/${base}?ref=${sha}`));
-const upstream = listing.filter((f) => f.name.endsWith(".mdx")).map((f) => f.name.replace(/\.mdx$/, ""));
-const forms = (await get(api(`contents/${ROOT}/forms?ref=${sha}`))).filter((f) => f.name.endsWith(".mdx")).map((f) => f.name.replace(/\.mdx$/, ""));
+// The upstream commit, a folder's .mdx names and a file's text, from a local checkout or from GitHub.
+const LOCAL = arg("local") && resolve(arg("local"));
+const mdx = (names) => names.filter((n) => n.endsWith(".mdx") && !n.startsWith("_")).map((n) => n.replace(/\.mdx$/, ""));
+const sha = LOCAL ? execSync(`git -C "${LOCAL}" rev-parse HEAD`).toString().trim() : (await get(api("commits/main"))).sha;
+const list = async (dir) => mdx(LOCAL
+  ? await readdir(join(LOCAL, ROOT, dir)).catch(() => [])
+  : (await get(api(`contents/${ROOT}/${dir}?ref=${sha}`)).catch(() => [])).map((f) => f.name));
+const read = (p) => (LOCAL ? readFile(join(LOCAL, ROOT, p), "utf8") : get(raw(sha, p), "text"));
+const readRepo = (p) => (LOCAL ? readFile(join(LOCAL, p), "utf8") : get(`https://raw.githubusercontent.com/${REPO}/${sha}/${p}`, "text"));
+
+const upstream = await list(`components/${base}`);
+if (!upstream.length) throw new Error(`no components found for base "${base}"`);
+const forms = await list("forms");
+const patterns = await list(`ai-elements/${base}`);
+const utils = await list("utils");
+const primitives = await list("react");
+const helpers = await list("helpers");
 
 // Local names drop dashes: alert-dialog.mdx -> alertdialog.md.
 const local = (name) => name.replaceAll("-", "");
@@ -49,14 +66,22 @@ const files = [
   ["(root)/theming.mdx", "instructions/theming.md"],
   ["(root)/components-json.mdx", "instructions/componentsjson.md"],
   ["(root)/monorepo.mdx", "instructions/monorepo.md"],
+  ["(root)/cli.mdx", "instructions/cli.md"],
+  [`installation/${framework}.mdx`, "instructions/installation.md"],
   [`dark-mode/${framework}.mdx`, "instructions/darkmode.md"],
   ...forms.map((n) => [`forms/${n}.mdx`, `instructions/forms-${n === "index" ? "overview" : n}.md`]),
+  ...helpers.map((n) => [`helpers/${n}.mdx`, `instructions/helpers-${n}.md`]),
+  ...(patterns.length ? [["ai-elements/index.mdx", "ai-elements/index.md"]] : []),
+  ...patterns.map((n) => [`ai-elements/${base}/${n}.mdx`, `ai-elements/${local(n)}.md`]),
+  ...utils.map((n) => [`utils/${n}.mdx`, `utils/${local(n)}.md`]),
+  ...primitives.map((n) => [`react/${n}.mdx`, `react/${local(n)}.md`]),
 ];
+const DIRS = ["components", "instructions", "ai-elements", "utils", "react"];
 
 const added = [], changed = [];
-for (const d of ["components", "instructions"]) await mkdir(join(DOCS, d), { recursive: true });
+for (const d of DIRS) await mkdir(join(DOCS, d), { recursive: true });
 for (const [from, to] of files) {
-  const text = await get(raw(sha, from), "text");
+  const text = await read(from);
   const path = join(DOCS, to);
   // Compared with what the session reads now: the project's copy, else the plugin's.
   const before = await readFile(path, "utf8").catch(() => readFile(join(SKILL, "docs", to), "utf8")).catch(() => null);
@@ -67,9 +92,25 @@ for (const [from, to] of files) {
 
 // docs/ holds only shadcn's own docs, so anything upstream no longer has is removed: deleted from the
 // project's copy, and reported when only the plugin has it (the index then drops its row).
+// The blocks index: every registry block with a description, one row each, from the registry list.
+const blocks = JSON.parse(await readRepo("apps/v4/registry/__blocks__.json")).filter((b) => b.description);
+const blocksText = [
+  "---", "title: Blocks", "description: Ready-made page sections from the shadcn/ui registry.", "---", "",
+  "Install one with `npx shadcn@latest add <name>`, then read its files: the source is the documentation.", "",
+  "| Block | What it is | Categories |", "|:--|:--|:--|",
+  ...blocks.map((b) => `| ${b.name} | ${b.description} | ${(b.categories ?? []).join(", ")} |`), "",
+].join("\n");
+{
+  const path = join(DOCS, "blocks.md");
+  const before = await readFile(path, "utf8").catch(() => readFile(join(SKILL, "docs", "blocks.md"), "utf8")).catch(() => null);
+  if (before === null) added.push("blocks.md");
+  else if (before.replace(/\r\n/g, "\n") !== blocksText) changed.push("blocks.md");
+  await writeFile(path, blocksText);
+}
+
 const keep = new Set(files.map(([, to]) => to));
 const removed = new Set();
-for (const d of ["components", "instructions"]) {
+for (const d of DIRS) {
   for (const f of await readdir(join(SKILL, "docs", d)).catch(() => [])) if (!keep.has(`${d}/${f}`)) removed.add(`${d}/${f}`);
   for (const f of await readdir(join(DOCS, d))) {
     if (!keep.has(`${d}/${f}`)) { await unlink(join(DOCS, d, f)); removed.add(`${d}/${f}`); }

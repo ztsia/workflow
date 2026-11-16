@@ -1,6 +1,6 @@
 ---
-last_checked: 2026-10-24
-upstream: shadcn-ui/ui@e55b60b1014c
+last_checked: 2026-11-16
+upstream: shadcn-ui/ui@e62c9435fff7
 base: radix
 framework: next
 ---
@@ -8,7 +8,7 @@ framework: next
 
 Quick-reference for component selection. Read this file first to shortlist candidates, then read only the relevant full docs.
 
-> **All docs live in:** `.claude/skills/uiux/docs/components/<component>.md`
+> **All docs live in:** `docs/components/<component>.md`, `docs/ai-elements/<pattern>.md`, `docs/utils/`, `docs/react/`, `docs/instructions/` and `docs/blocks.md`, relative to the skill folder (`.claude/skills/uiux/`).
 
 ---
 
@@ -161,8 +161,59 @@ Quick-reference for component selection. Read this file first to shortlist candi
 
 ---
 
+## AI Elements (patterns for agent interfaces)
+
+AI Elements are patterns for building agentic interfaces; each one is a composition of shadcn/ui components that you copy into your project, with no package to install. A Chat is a list of Message turns inside a Message Scroller, and the steps an agent takes inside a turn (Reasoning, Tool, Plan and the like) are built on Trace, so every step has the same shape.
+
+Doc paths in this section are `docs/ai-elements/<name>.md`.
+
+| Component | When to use | Key variants / features |
+|:--|:--|:--|
+| Chain of Thought | A summary line ("Researched in 3 steps") that expands into the steps the agent took | Trace + TraceCollapsible, step status (running, error, done), `keepMounted` so steps keep their open state, Badge per search-result hostname |
+| Chat | The whole conversation thread: Message turns inside a Message Scroller with the composer | `scrollAnchor` on the person's turn, `autoScroll` follows the reply, `createChat` AI SDK helper for scripted demos |
+| Checkpoint | A point in the conversation the person can return to | Marker (separator) after a turn with a Restore button; restore keeps that turn and drops later ones |
+| Confirmation | Ask the person to approve or deny a tool **before it runs** | Item with Deny and Approve buttons, AI SDK `approval-requested`; becomes a Tool line once answered |
+| Context | Show how much of the model's context window the conversation has used | Hover Card + Progress, usage from message metadata, `limit` set from the model |
+| File Tree | The files the agent changed, as folders that open | recursive nodes, folder = Collapsible, file = Button |
+| Inline Citation | A source inside the sentence it supports, opening on hover | Hover Card on a Button, `source-url` part, title falls back to hostname |
+| Message | One finished turn: the person's bubble, or the agent's markdown reply with actions | person = Bubble on Message `align="end"`, actions in MessageFooter (copy, good/bad response toggles with `aria-pressed`, retry, edit), Streamdown markdown with Code Block |
+| Model Selector | Pick the model the agent runs and how hard it thinks | two Dropdown Menu radio menus (model grouped by provider, effort low/medium/high) in an InputGroup addon, sent with the message |
+| Plan | Steps the agent decides on **before** it starts, with progress ("2 of 4 done") | Trace + TraceCollapsible, step status (done, running, pending), description above the steps, streamed as a data part with a fixed `id` |
+| Prompt Input | The field the person types into to message the agent | InputGroup with textarea, attach button, Attachment chips (`block-start` addon), Model Selector menus (`block-end` addon), send button, Enter sends and Shift+Enter adds a line |
+| Queue | The agent's todo list, split into To do and Completed | Trace sections, todo icon per status (pending, in_progress, completed), optional description per todo, `writeTodos` tool |
+| Reasoning | The agent's thinking as it streams ("Thinking", then "Thought") | opens while the model thinks and closes when done, optional duration in TraceDescription, one line per reasoning part |
+| Sources | The list of links the agent used for a reply ("Used 3 sources") | Trace + TraceCollapsible, dedupe `source-url` parts by `url`, links open in a new tab with `sr-only` text |
+| Stack Trace | A tool call that failed, with its stack frames | title "Failed: TypeError", frames in Code Block, `node_modules` frames muted, frame links to file and line, send `error.stack` only in development |
+| Subagent | Work the agent handed to a subagent, with its tool calls and result | line with `status="running"`, nested Trace of tool calls, task, model and tools as Badges, run time in TraceDescription |
+| Suggestion | A short prompt the person can send in one click | row of Buttons above Prompt Input, `scroll-fade-x` when it overflows, label is the message |
+| Task | A piece of work whose steps appear **as the agent takes them** | TraceCollapsible per task, status (running, error, done) with present/past-tense title, several tasks in one Trace, streamed as data parts with their own `id` |
+| Terminal | A shell command the agent runs (lint, test, build) with streaming output | line shows the command, output in Code Block, `status="error"` on a non-zero exit code, opens when output starts |
+| Test Results | A test run by the agent, with its suites and failures | summary counts passed and failed, one collapsible per file with a Trace of tests, open the suites that failed, error per failure |
+| Tool | A tool call the agent makes, from input to output | `status` mapped from the part state (input-streaming, output-available, output-error, approval-responded, output-denied), plain line while running and collapsible once output arrives, long output in a Sheet |
+
+> **AI Elements vs the components they use:** `ai-elements/message` = a finished turn with its reply and actions; `components/message` = the bare row primitive (avatar, header, footer) it is built on. `Plan` = every step known up front, with pending steps and progress; `Task` = steps appear only as the agent takes them; `Queue` = the agent's todo list in To do and Completed; for any other step shape, build on `Trace` directly. `Prompt Input` = the composer for messaging an agent (attachments, model menus, send); use `InputGroup` or `Textarea` for any other field. `Confirmation` = inline approve or deny before a tool runs, outside Trace; use `AlertDialog` for a modal confirm of a destructive action in the app. `Model Selector` = fixed model and effort menus beside the send button; use `Select` for an ordinary fixed list, or `Combobox` when a long model list needs search. `Suggestion` = prompts that send themselves; use `Button` for anything else. `Tool` = one call; `Terminal`, `Test Results` and `Stack Trace` = the same call when its output is a command, a test run or an error. `Reasoning` = the agent's thinking; `Chain of Thought` = a summary over its steps. `Sources` = a list after the reply; `Inline Citation` = a source inside a sentence. `Context` = the model's context window, not task progress (use `Progress`).
+
+---
+
 ## Utility
 
 | Component | When to use | Key variants / features |
 |:--|:--|:--|
 | Separator | Visual divider between sections | orientation (horizontal, vertical), inline text |
+
+## Utilities and primitives
+
+| Component | When to use | Key variants / features |
+|:--|:--|:--|
+| scroll-fade (`docs/utils/scrollfade.md`) | Fade the edge of a scroll container that has more content (lists, chat, horizontal chip rows); no overflow shows no fade | `scroll-fade` / `scroll-fade-y` / `scroll-fade-x`, edges `-t -b -l -r -s -e`, size `scroll-fade-<n>` or `[<value>]`, `scroll-fade-none`, RTL aware |
+| shimmer (`docs/utils/shimmer.md`) | A sweeping highlight on text that is live or loading ("Thinking...", a running step) | `shimmer`, `shimmer-once`, `shimmer-reverse`, `shimmer-none`, `shimmer-color-*`, `shimmer-duration-<ms>`, `shimmer-spread-*`, `shimmer-angle-*`, pairs with Marker |
+| Message Scroller, unstyled (`docs/react/messagescroller.md`) | Only for fully custom markup or a project without the registry; otherwise use the styled `MessageScroller` | `@shadcn/react` namespace `MessageScroller.Provider/Root/Viewport/Content/Item/Button`, same scroll behavior, no styles, `defaultScrollPosition` flash-on-reload fix |
+| Questionnaire, unstyled (`docs/react/questionnaire.md`) | Only for fully custom markup; otherwise use the styled `Questionnaire` | `Questionnaire.Root/Item/Title/Choice/ChoiceInput/Input/Skip/Next/Submit`, native form (fieldset, radio, checkbox), `multiple`, server-rendered `items` |
+
+> **Unstyled primitives:** almost never. Use the styled component from `docs/components/` unless the markup must be entirely your own.
+
+---
+
+## Blocks
+
+`docs/blocks.md` lists the registry's ready-made page sections (sidebars, dashboard, login, signup). Install one with `npx shadcn@latest add <name>` and read its source, which is the documentation.
