@@ -25,9 +25,9 @@ into it.
    `templates/scripts/mutants.mjs` into `scripts/`. Each file's header says how to adapt it.
    `templates/api/` holds examples (a route table, `Server-Timing` middleware) for a project with an
    API; the `database` skill says when to use them.
-   The `uiux` skill's shadcn docs are pulled for one base library and framework (its
-   `components-index.md` names them). A project on another one re-pulls them on first use, as the
-   skill's staleness rule says; that's expected, not an error.
+   The `uiux` skill carries shadcn's docs for every base library (Radix, Base UI, React Aria) and
+   framework. Name the project's base in its `CLAUDE.md` (until `components.json` exists, the skill
+   reads it from there).
 6. **`docs/`**, each only if missing:
    - `handoff.md`: *Where things stand*, *Decided*, *Open with the owner*, *Do first*, *Settled*.
    - `decisions.md`: a heading and an empty numbered list (D1, D2, …).

@@ -13,8 +13,9 @@ You are updating the component index of a UI skill after its shadcn/ui docs were
 - **Skill folder:** `<absolute path to the uiux skill's folder>`
 - **The script's output:** `<paste the added, removed and changed lines>`
 
-The docs in the refreshed copy's `docs/` folder (`components/`, `ai-elements/`, `utils/`, `react/`, `instructions/`,
-`blocks.md`) are shadcn's own doc source and are already current. Your job is
+The docs in the refreshed copy's `docs/` folder (`<base>/components/` and `<base>/ai-elements/` per base library,
+and the shared `utils/`, `react/`, `instructions/` and `blocks.md`) are shadcn's own doc source and are already
+current. Your job is
 `components-index.md`, the hand-written table a session reads to shortlist components.
 
 **Steps:**
@@ -23,12 +24,13 @@ The docs in the refreshed copy's `docs/` folder (`components/`, `ai-elements/`, 
 2. For each **added** doc: read it in full, then add a row in the right section, written like the
    rows around it: a component in its kind's section, an `ai-elements/` pattern under *AI Elements*,
    a `utils/` or `react/` doc under *Utilities and primitives*. `blocks.md` gets no rows: the
-   *Blocks* section only points to it. Where it overlaps an existing component (a new `Toast` next to `Sonner`, a
+   *Blocks* section only points to it. Rows hold for every base; a component that exists in only
+   some bases says which at the end of its *When to use* cell. Where it overlaps an existing component (a new `Toast` next to `Sonner`, a
    `NativeSelect` next to `Select`), add a disambiguation note saying when to use which.
 3. For each **removed** doc: delete its row and any note that names it.
-4. When the base library changed (the front matter's `base`), compare each component doc with the
-   other base's version and update rows whose variants, props or sub-components differ; the base's
-   own mechanics (`render` vs `asChild`, import paths) go in one note under the title.
+4. For each base, compare its changed component docs with the same component in the other bases.
+   Differences a builder would trip on (composition prop, toast, renamed props, missing
+   sub-components) go in that base's bullet under *By base*, not in the rows.
 5. For each **changed** doc: see what changed with `git diff -- <file>` when the project's copy was
    already committed, else `git diff --no-index <skill folder>/docs/<file> <refreshed copy>/docs/<file>`,
    and update the

@@ -1,14 +1,21 @@
 ---
 last_checked: 2026-11-16
 upstream: shadcn-ui/ui@e62c9435fff7
-base: radix
-framework: next
+bases: radix, base, aria
 ---
 # shadcn/ui Component Index
 
 Quick-reference for component selection. Read this file first to shortlist candidates, then read only the relevant full docs.
 
-> **All docs live in:** `docs/components/<component>.md`, `docs/ai-elements/<pattern>.md`, `docs/utils/`, `docs/react/`, `docs/instructions/` and `docs/blocks.md`, relative to the skill folder (`.claude/skills/uiux/`).
+> **All docs live in** the skill folder (`.claude/skills/uiux/`): `docs/<base>/components/<component>.md` and `docs/<base>/ai-elements/<pattern>.md` for the project's base library (`radix`, `base` or `aria`); shared by every base, `docs/utils/`, `docs/react/`, `docs/instructions/` (with `darkmode/<framework>.md` and `installation/<framework>.md`) and `docs/blocks.md`. The rows below hold for every base unless marked; props differ by base, so read the doc for the project's base before using a component.
+
+## By base
+
+The project's base is the prefix of `components.json`'s `style` (`radix-nova`, `base-nova`, `aria-nova`…), or `npx shadcn@latest info --json`; before the project has `components.json`, its `CLAUDE.md` names it.
+
+- **Radix** (`radix-ui`): compose with `asChild`. Toasts are `Sonner`; `toast.md` only points to it. `Drawer` is built on vaul.
+- **Base UI** (`@base-ui/react`): compose with the `render` prop, never `asChild`. No `Sonner`: `Toast` is the toast (one `<Toaster />` from `@/components/ui/toast`, `toast.add({ title, description, type })`, Undo through `actionProps` and `toast.close(id)`). `Drawer` is Base UI's own (`swipeDirection`, `snapPoints`, `showSwipeHandle`, `modal`), not vaul. `Accordion` takes `multiple` instead of `type`/`collapsible`; `HoverCard` delays sit on the trigger; `Select` takes `items` and `alignItemWithTrigger`; `Progress` has `ProgressLabel` and `ProgressValue`; `RadioGroup` takes `disabled` on the group.
+- **React Aria** (`react-aria-components`): compose with `href` on `Button`-like parts (`SidebarMenuButton href`) or `render={(props) => <a {...props} />}`, never `asChild`; a link that should look like a button is a plain `<a className={buttonVariants()}>`, never `<Button>`, which forces `role="button"`. Toasts are `Sonner`; `toast.md` only points to it. Overlays wrap the trigger and the popup in one parent, with no `*Content` part: `<DialogTrigger><Button/><Dialog>…</Dialog></DialogTrigger>` (same for `AlertDialog`, `Sheet`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, whose `Tooltip` needs no provider); position moves to `placement` on `Popover`, and `HoverCard` delays sit on its trigger. Props follow React Aria: `isDisabled`, `isInvalid`, `isSelected` instead of `disabled`, `aria-invalid`, `checked`; `onChange(value)` and `onPress` replace `onCheckedChange`, `onValueChange` and `onClick`; `id` replaces `value` on items and tabs, with `defaultSelectedKey` on `Tabs`; `Accordion` takes `defaultExpandedKeys` and `allowsMultipleExpanded`, `Collapsible` takes `defaultExpanded`; `ToggleGroup` and `DropdownMenu` take `selectionMode` (checkbox and radio items become `selectionMode="multiple"` and `"single"`); `Select` takes `placeholder` on the root and mapped `SelectItem id`; `Calendar` and `DatePicker` use `CalendarDate` from `@internationalized/date` with `value`/`onChange`, not `Date` and `mode`; `Command` and `Combobox` show empty text through `renderEmptyState`; `Progress` has `ProgressLabel` and `ProgressValue`; `RadioGroup` takes `isDisabled` on the group; `Drawer` is Base UI's (`swipeDirection`, `snapPoints`, trigger through `render`), not vaul. No `Menubar` or `NavigationMenu`
 
 ---
 
@@ -99,8 +106,8 @@ Quick-reference for component selection. Read this file first to shortlist candi
 | Breadcrumb | Show hierarchical path and current location | link, separator, dropdown, ellipsis |
 | ContextMenu | Right-click contextual actions for elements | submenus, checkboxes, radio items, shortcuts |
 | DropdownMenu | Button-triggered action/selection menu | submenu, checkbox/radio items, icons, shortcuts |
-| Menubar | Persistent horizontal menu bar (macOS-style app menus) | checkbox/radio items, submenus, separators |
-| NavigationMenu | Horizontal site navigation with submenus | triggers, content, link styling |
+| Menubar | Persistent horizontal menu bar (macOS-style app menus). Radix and Base UI only | checkbox/radio items, submenus, separators |
+| NavigationMenu | Horizontal site navigation with submenus. Radix and Base UI only | triggers, content, link styling |
 | Pagination | Navigate between pages | simple variant, icons-only, ellipsis |
 | Sidebar | Collapsible sidebar with header, content, footer, menu | collapsible (offcanvas, icon, none), variant (sidebar, floating, inset) |
 
@@ -115,10 +122,10 @@ Quick-reference for component selection. Read this file first to shortlist candi
 | Empty | Placeholder when no data exists — always handle empty states | icon, avatar, background, button action, outline variant |
 | Progress | Visual indicator of task completion | label, controlled value, animated |
 | Skeleton | Loading placeholder for async content — prevents layout shift | avatar, card, text, table shapes |
-| Sonner | Toast notification for transient feedback (success, error, info) | position, types (default, success, error, loading), description |
+| Sonner | Toast notification for transient feedback (success, error, info). Radix and React Aria; on Base UI use `Toast` | position, types (default, success, error, loading), description |
 | Spinner | Animated loading indicator for in-progress operations | size variants, button/badge context |
 
-> **Toasts:** use `Sonner`. `toast.md` only points to it.
+> **Toasts:** `Sonner` on Radix and React Aria (their `toast.md` only points to it); `Toast` on Base UI.
 
 > **Choosing between loading states:** `Skeleton` = content placeholder during load. `Spinner` = action in progress (button, inline). `Progress` = known completion percentage.
 
@@ -165,7 +172,7 @@ Quick-reference for component selection. Read this file first to shortlist candi
 
 AI Elements are patterns for building agentic interfaces; each one is a composition of shadcn/ui components that you copy into your project, with no package to install. A Chat is a list of Message turns inside a Message Scroller, and the steps an agent takes inside a turn (Reasoning, Tool, Plan and the like) are built on Trace, so every step has the same shape.
 
-Doc paths in this section are `docs/ai-elements/<name>.md`.
+Doc paths in this section are `docs/<base>/ai-elements/<name>.md`.
 
 | Component | When to use | Key variants / features |
 |:--|:--|:--|
@@ -210,7 +217,7 @@ Doc paths in this section are `docs/ai-elements/<name>.md`.
 | Message Scroller, unstyled (`docs/react/messagescroller.md`) | Only for fully custom markup or a project without the registry; otherwise use the styled `MessageScroller` | `@shadcn/react` namespace `MessageScroller.Provider/Root/Viewport/Content/Item/Button`, same scroll behavior, no styles, `defaultScrollPosition` flash-on-reload fix |
 | Questionnaire, unstyled (`docs/react/questionnaire.md`) | Only for fully custom markup; otherwise use the styled `Questionnaire` | `Questionnaire.Root/Item/Title/Choice/ChoiceInput/Input/Skip/Next/Submit`, native form (fieldset, radio, checkbox), `multiple`, server-rendered `items` |
 
-> **Unstyled primitives:** almost never. Use the styled component from `docs/components/` unless the markup must be entirely your own.
+> **Unstyled primitives:** almost never. Use the styled component from `docs/<base>/components/` unless the markup must be entirely your own.
 
 ---
 
