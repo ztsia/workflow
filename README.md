@@ -16,7 +16,7 @@ from the projects that proved it (Sen's build first).
 | `agents/scout.md` | `workflow:scout`: cheap Haiku lookups over long logs or unfamiliar code |
 | `skills/brief/` | How the main session briefs a subagent: choosing the model and effort, the brief's template and checks, agents running at once, waiting on long runs, and what to do on a miss |
 | `skills/qa/` | How a slice is QA'd: diff-driven and measured, mechanical checks first, the helpers' templates, escapes and the retro, the three fix tiers, the published report |
-| `skills/uiux/` | shadcn/ui components, one set of shared patterns, calm card-based structure, the size hierarchy and the phone-first checklist. `scripts/refresh.mjs` re-pulls shadcn's docs into the project once they're 90 days old or the project's base library differs |
+| `skills/uiux/` | shadcn/ui components, one set of shared patterns, calm card-based structure, the size hierarchy and the phone-first checklist. Carries shadcn's docs for every base library (Radix, Base UI, React Aria); `scripts/refresh.mjs` re-pulls them once they're 90 days old |
 | `skills/database/` | Data layer and backend security: RLS per request, on plain Postgres and on Supabase; every route in one table, swept |
 | `skills/llm/` | Model calls in a product: prompts, checking an existing prompt, API errors, caching, cost, moving models and evals, with dated notes per vendor (Anthropic, OpenAI, Google) refreshed from the official docs |
 | `skills/security/` | A product's own code without vulnerabilities, with dated notes per stack (TypeScript, Python, Go), of which a session reads only the one in use |

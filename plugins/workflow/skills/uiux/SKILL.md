@@ -33,27 +33,35 @@ does not hang together.
    Read a component's source before recommending it. The source is the documentation, and its props
    are the real ones.
 4. **`components-index.md`**, read in full. Shortlist with its *When to
-   use* column and its disambiguation notes. Then read each shortlisted `docs/components/<component>.md` in full:
-   variants, props, examples and sub-components. Never open a doc speculatively.
-5. **`docs/instructions/`** for theming, dark mode, `components.json`, and
-   forms (`forms-*.md`, one per form library).
+   use* column and its disambiguation notes, and read its *By base* notes for the project's base
+   library (`radix`, `base` or `aria`: the prefix of `components.json`'s `style`, or the project's
+   `CLAUDE.md` before that file exists). Then read each shortlisted doc in full, from that base's
+   folder (`docs/<base>/components/<component>.md`, or `docs/<base>/ai-elements/<pattern>.md` for
+   an agent interface): variants, props, examples and sub-components. Never open a doc
+   speculatively, and never one from another base's folder: props differ between bases.
+5. **`docs/instructions/`** for theming, `components.json`, the CLI, AI Elements, forms
+   (`forms-*.md`, one per form library), dark mode and installation (`darkmode/<framework>.md`,
+   `installation/<framework>.md`); **`docs/blocks.md`** for ready-made page sections (sidebars,
+   dashboard, sign-in) to install and edit in place.
 6. **Other skills** the project has, for charts, the official shadcn skill (current APIs), and so on.
 
 ## Keep the component docs current
 
-The component docs are shadcn's own doc source, for one base library (`radix`, `base` or `aria`)
-and one framework. `components-index.md` opens with `last_checked`, the `upstream` commit, the
-`base` and the `framework`. Before relying on them:
+The component docs are shadcn's own doc source, one folder per base library (`radix`, `base`,
+`aria`), with the framework docs shared. `components-index.md` opens with `last_checked`, the
+`upstream` commit and the `bases` it covers. Before relying on them:
 
 1. **The docs are stale** when any of these holds:
    - `last_checked` is more than 90 days ago.
-   - The project's base library or framework (`npx shadcn@latest info --json`, or
-     `components.json`) differs from the index's `base` or `framework`.
+   - The project's base library (`npx shadcn@latest info --json`, or `components.json`) isn't in
+     the index's `bases`.
    - The project has a component in `components/ui/` that the index doesn't list.
    - A prop or variant a doc shows doesn't exist in the installed component's source.
 2. **When they're stale, re-pull them:** `node "${CLAUDE_SKILL_DIR}/scripts/refresh.mjs"` from the
-   project root (it reads the base and framework from the project; `--base` and `--framework`
-   override). It writes the docs from shadcn's repo into the project's `docs/workflow/uiux/`,
+   project root (it reads the base from the project; `--base radix|base|aria|all` overrides;
+   `--local <checkout>` reads a sparse clone of `shadcn-ui/ui` when GitHub's API is refused). It
+   writes that base's docs and the shared ones from shadcn's repo into the project's
+   `docs/workflow/uiux/`,
    which then replaces this skill's copy, deletes the ones shadcn removed, stamps the
    index, and prints what was added, removed and changed. It takes about a minute.
 3. **Then update the index in the background.** Spawn one agent with `refresh.md` as its brief
@@ -62,8 +70,8 @@ and one framework. `components-index.md` opens with `last_checked`, the `upstrea
 4. **When it returns, review the index diff**, decide each `SKILL.md` line its report raises, and
    edit this file yourself. Commit the refresh on its own (*uiux: refresh component docs*).
 5. **Send it upstream.** Add a line to `docs/local.md`: open a PR to `ztsia/workflow` with the
-   refreshed `docs/workflow/uiux/` at `plugins/workflow/skills/uiux/`, then delete the project's copy
-   once the plugin is updated.
+   refreshed docs: run the script there with `--base all --out plugins/workflow/skills/uiux` and
+   carry the index changes over. Delete the project's copy once the plugin is updated.
 
 With no network access, carry on with the docs as they are and add the refresh to `docs/local.md`.
 Never stop to ask.
@@ -164,7 +172,7 @@ Check every element, new or existing, for these. Fix them before calling the scr
   them manage focus.
 - Forms: `Field`, `FieldLabel` and `FieldError`, with the form library's state and a schema
   validator.
-- Mount `Sonner`'s `<Toaster />` once, in the app layout.
+- Mount the toast's `<Toaster />` once, in the app layout (`Sonner` on Radix, `Toast` on Base UI).
 - Charts: the `Chart` wrapper with a `chartConfig` that names token colours. No inline colours.
 
 ## Checklist: every project
@@ -187,7 +195,7 @@ Check every element, new or existing, for these. Fix them before calling the scr
 **States and feedback**
 - Every async surface has a `Skeleton` shaped like the content while it loads, and `Empty` when
   there is no data: one line on what will appear, plus the action that fills it.
-- Every action gets a visible response: an optimistic update, a toast (`Sonner`), a disabled button
+- Every action gets a visible response: an optimistic update, a toast, a disabled button
   with a `Spinner` while it works, or an error in `Alert` or `Field`.
 - Errors say what happened and what to do next, sit next to their cause (linked with
   `aria-describedby`), never lose the user's input, and move focus to the first problem on a
@@ -198,7 +206,7 @@ Check every element, new or existing, for these. Fix them before calling the scr
 
 **Components**
 - Use the best variant for the context (`destructive`, `outline`, `ghost`) and use advanced props
-  where they help (`size`, `asChild`).
+  where they help (`size`; `asChild` on Radix, `render` on Base UI).
 - Compose for richness (`Command` with `Popover`, `Field` around inputs, `InputGroup` with a
   prefix). Group related actions (`ButtonGroup`, `ToggleGroup`, `DropdownMenu`).
 - `AlertDialog` only to confirm what cannot be undone. Give every dialog and sheet a title.
@@ -223,7 +231,7 @@ Check every element, new or existing, for these. Fix them before calling the scr
   or hex values. Define colour pairs (`primary` with `primary-foreground`) in full for light and
   dark.
 - Check the screen in both light and dark. If the project has several themes, check at least the
-  lightest and the darkest. Setup is in `.claude/skills/uiux/docs/instructions/darkmode.md`.
+  lightest and the darkest. Setup is in `.claude/skills/uiux/docs/instructions/darkmode/<framework>.md`.
 
 **Motion**
 - CSS transitions at 150 to 250 ms, easing out on entry. Animate `transform` and `opacity` only.
@@ -323,7 +331,7 @@ Check every element, new or existing, for these. Fix them before calling the scr
   important behind a `Popover`.
 - A form field with a short, fixed list of options is a `NativeSelect`: it opens the phone's own
   picker. A long or searchable list is a `Combobox`.
-- **Undo instead of confirm:** act at once, then offer *Undo* in a `Sonner` toast (auto-dismiss
+- **Undo instead of confirm:** act at once, then offer *Undo* in a toast (auto-dismiss
   around 6 s, never piling up). This applies to delete and other reversible edits. Keep
   `AlertDialog` for the irreversible.
 
