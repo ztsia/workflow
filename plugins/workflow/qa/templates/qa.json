@@ -1,0 +1,29 @@
+{
+  "map": "qa/map",
+  "stack": {
+    "adapter": ["node-static"],
+    "build": "npm run build"
+  },
+  "login": {
+    "staff": {
+      "mode": "form",
+      "path": "/auth",
+      "from": "adapter",
+      "fields": {
+        "email": "input[type=email]",
+        "password": "input[type=password]"
+      },
+      "submit": "button[type=submit]",
+      "done": { "urlNot": "/auth" }
+    }
+  },
+  "viewports": {
+    "desktop": [1440, 900],
+    "phone": [390, 844]
+  },
+  "ports": {
+    "band": [8010, 8030],
+    "reserved": [8090]
+  },
+  "watch": "h1, h2, [role=tab], [role=status], .badge"
+}

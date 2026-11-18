@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# serve: run the Node static server for the built folder on QA_PORT (lib/serve.mjs).
+set -euo pipefail
+
+exec node "$(dirname "$0")/lib/serve.mjs"

@@ -1,0 +1,6 @@
+{
+  "type": "stack",
+  "verbs": ["setup", "build", "serve"],
+  "detect": ["package.json"],
+  "description": "a Node web app: npm install, npm run build, serve the built folder"
+}

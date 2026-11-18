@@ -1,0 +1,38 @@
+{
+  "area": "candidates",
+  "flows": {
+    "open:candidates": [
+      { "flow": "login:staff" },
+      { "goto": "/candidates" },
+      { "waitFor": "role=heading[name=\"Candidates\"]" }
+    ]
+  },
+  "screens": [
+    {
+      "name": "candidates-list",
+      "flow": "open:candidates",
+      "expectData": "$seed.candidate.alice.name",
+      "steps": [
+        { "capture": "list" }
+      ]
+    },
+    {
+      "name": "candidate-detail",
+      "flow": "open:candidates",
+      "steps": [
+        { "click": "role=link[name=\"$seed.candidate.alice.name\"]" },
+        { "waitFor": "role=heading[name=\"$seed.candidate.alice.name\"]" },
+        { "capture": "detail" }
+      ]
+    },
+    {
+      "name": "candidates-empty-search",
+      "flow": "open:candidates",
+      "emptyOk": true,
+      "steps": [
+        { "fill": "role=searchbox", "value": "zzz-no-match" },
+        { "capture": "empty" }
+      ]
+    }
+  ]
+}

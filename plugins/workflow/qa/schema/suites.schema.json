@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa test suites (qa/suites.json)",
+  "description": "The commands that run the project's tests. A `test` expectation (expectations.json) names a suite and the test in it; qa runs only that test (and only its file, when the entry names one), never the whole suite. A mutant's kill test names a suite too, and `qa ready` runs each suite whole once to prove it names its tests. A playwright, vitest, jest, pytest or node --test command (an argv list, or a string with no ; & | < > ` or $( in it) gets the name filter, the file and a machine-readable reporter added at its end; any other command gets QA_TEST_GREP, QA_TEST_FILE and QA_TEST_REPORT in its env and may use them. A .ts/.mjs suites file exports SUITES with the same values. These used to be the SUITES of qa/mutants.*, which qa still reads while a project has no suites file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["suites"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "suites": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/suite" }
+    }
+  },
+  "$defs": {
+    "command": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "'test:<level>' runs the stack adapter's test verb with that level. Any other string is a shell command, run with bash -c in the worktree"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "argv run directly in the worktree; argv[0] is the program"
+        }
+      ]
+    },
+    "suite": {
+      "anyOf": [
+        { "$ref": "#/$defs/command" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cmd"],
+          "properties": {
+            "cmd": { "$ref": "#/$defs/command" },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The limit of one run of this suite, replacing qa.json mutants.timeoutMs (default 900000)"
+            },
+            "covers": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "The globs of the source files this suite's tests exercise. A re-verify round re-runs a test row of this suite, carried from an earlier round, when the fix changes a file one of them matches; without covers a test row re-runs only when its own test file changes"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

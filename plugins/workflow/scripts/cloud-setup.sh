@@ -1,6 +1,7 @@
 #!/bin/bash
-# Setup script for the cloud environment: paste it into claude.ai/code → the environment → Setup
-# script. It runs as root before Claude Code starts, and the result is cached with the environment.
+# Setup script for the cloud environment: the environment's setup script at claude.ai/code runs it with
+# `curl -fsSL <raw URL of this file> | bash` (README, In the cloud).
+# It runs as root before Claude Code starts, and the result is cached with the environment.
 # Cloud sessions don't install the plugins a repo enables, but they load a plugin folder placed under
 # ~/.claude/skills/ as <name>@skills-dir. This puts the workflow plugin and Anthropic's security
 # plugins there.
@@ -43,6 +44,8 @@ install() {
         mkdir -p "$src/repo/$(dirname "$f")"
         curl -fsSL --max-time 60 -o "$src/repo/$f" "https://raw.githubusercontent.com/$repo/main/$f" ||
           { echo "cloud-setup: could not fetch $repo/$f"; rm -rf "$src/repo/$path"; break; }
+        # A raw fetch drops the exec bit; a script with a shebang gets it back.
+        if [ -f "$src/repo/$f" ] && [ "$(head -c2 "$src/repo/$f")" = '#!' ]; then chmod +x "$src/repo/$f"; fi
       done <<<"$files"
     done
   fi
@@ -59,6 +62,8 @@ install() {
 }
 
 install ztsia/workflow plugins/workflow
+# --workflow-only: the plugin's own SessionStart hook updating itself to main's version.
+[ "${1:-}" = "--workflow-only" ] && exit 0
 install anthropics/claude-plugins-official plugins/claude-security plugins/security-guidance
 
 exit 0

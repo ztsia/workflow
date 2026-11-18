@@ -21,8 +21,9 @@ into it.
 3. **`scripts/session-setup.sh`** from `templates/scripts/session-setup.sh`, with the project's own
    package manager and setup in place of the template's installs.
 4. **`.claude/claude-security-guidance.md`** from `templates/claude-security-guidance.md`.
-5. **QA's tooling**, once the project has a test suite: `templates/qa/*` into `qa/`, and
-   `templates/scripts/mutants.mjs` into `scripts/`. Each file's header says how to adapt it.
+5. **QA**, once the project has a test suite: the `qa` skill's `setup.md` (`qa setup` writes
+   `qa.json` and `qa/suites.*` from `${CLAUDE_PLUGIN_ROOT}/qa/templates/`), and add `qa-artifacts/` to
+   `.gitignore`.
    `templates/api/` holds examples (a route table, `Server-Timing` middleware) for a project with an
    API; the `database` skill says when to use them.
    The `uiux` skill carries shadcn's docs for every base library (Radix, Base UI, React Aria) and
@@ -48,7 +49,7 @@ A project set up before the plugin has the workflow's files copied into it. Both
 plugin's agents and skills are namespaced, so `qa` and `workflow:qa` sit side by side), so the old
 ones go. Move a project only between slices, never on a slice's branch.
 
-1. **Agents and skills.** For each of `.claude/agents/{implementer,qa-reviewer,qa-eyes,scout}.md` and
+1. **Agents and skills.** For each of `.claude/agents/{implementer,qa-reviewer,qa-eyes,qa-mapper,qa-security,scout}.md` and
    `.claude/skills/{qa,uiux,database,llm,security,brief}/`, compare it with the plugin's version:
    `git diff --no-index <project copy> "${CLAUDE_PLUGIN_ROOT}/<agents|skills>/<name>"`. Sort each
    difference:
@@ -66,14 +67,15 @@ ones go. Move a project only between slices, never on a slice's branch.
    subagents*, the owner's general rules, the general conventions and the *Skills* table. Keep the
    project's own facts, in `templates/CLAUDE.md`'s sections. Where the project departs from the
    rules, write it under *Overrides*, with the decision that chose it.
-3. **Scripts.** `scripts/usage.mjs` and `scripts/qa-report.mjs` are the plugin's now: delete them,
+3. **Scripts.** `scripts/usage.mjs`, `scripts/qa-report.mjs` and `scripts/mutants.mjs` are the plugin's now: delete them,
    and point any project doc that runs them at the plugin's copy, written as
    `node "<workflow plugin>/scripts/<name>"`, the folder the workflow rules name at the start of
    each session. Never write this session's absolute path into a doc: in a cloud session the plugin
    is somewhere else. Keep
    the project's part of `scripts/session-start.sh` (its installs, a local database) as
    `scripts/session-setup.sh`, and delete the rest; the plugin's hook loads the rules, points at the
-   handoff and names the newest slice branch. Keep `scripts/mutants.mjs` and `qa/`.
+   handoff and names the newest slice branch. Move `qa/mutants.ts` and `qa/limits.ts` into the shape of
+   `${CLAUDE_PLUGIN_ROOT}/qa/templates/` (the `qa` skill's `setup.md`); keep `qa/escapes.md`.
 4. **`.claude/settings.json`**: merge in `templates/settings.json`, replacing the old hook that ran
    `scripts/session-start.sh`. Add `.claude/claude-security-guidance.md` from
    `templates/claude-security-guidance.md` if the project has none.

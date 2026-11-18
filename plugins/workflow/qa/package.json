@@ -1,0 +1,12 @@
+{
+  "name": "workflow-qa",
+  "private": true,
+  "description": "Engine and tests for the workflow plugin's qa CLI (plugins/workflow/qa). playwright-core is installed into the plugin data directory on first use (scripts/lib/playwright.mjs); this file pins the same version for a checkout.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

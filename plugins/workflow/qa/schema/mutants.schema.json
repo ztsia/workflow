@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa mutant registry (qa/mutants.json) and verifier proposals (<verification>/mutants.json)",
+  "description": "Breakage checks: each mutant is an edit (find, exactly once in file, replaced by replace) and the test that must turn red when it is made. `qa run` runs only the proposals that name their killing test (kill), and runs only that test, unmutated and then mutated; the registry's mutants run only on an explicit --mutants all (or affected). The suites live in qa/suites.* (schema/suites.schema.json); a registry's own `suites` is the old place, read only while the project has no suites file. The engine adds origin ('registry' or 'verify') itself; it is not written here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mutants"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "suites": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "suites.schema.json#/$defs/suite"
+      },
+      "description": "The old place of the suites (now qa/suites.*): read only while the project has no suites file. Leave it out of a new registry"
+    },
+    "mutants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mutant"
+      }
+    }
+  },
+  "$defs": {
+    "mutant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "breaks",
+        "file",
+        "find",
+        "replace"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "breaks": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What breaks, as a person or the data would suffer it"
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to the repo root, '/'-separated"
+        },
+        "find": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Must occur exactly once in file, or the mutant is stale"
+        },
+        "replace": {
+          "type": "string"
+        },
+        "suite": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A key of the suites: the suite run whole for this mutant under --mutants all|affected. Leave it out when kill names the suite"
+        },
+        "kill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "suite",
+            "grep"
+          ],
+          "description": "The one test that must fail when the edit is made: green unmutated, red mutated is killed; still green is SURVIVED (a guard no test holds). The same shape as a test expectation's `test`",
+          "properties": {
+            "suite": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A key of the suites, or 'test:<level>'"
+            },
+            "grep": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The test's own title (a part unique to it), or '/re/flags'"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The test file it is in, relative to the repo root: only that file runs"
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "suite"
+          ]
+        },
+        {
+          "required": [
+            "kill"
+          ]
+        }
+      ]
+    }
+  }
+}
