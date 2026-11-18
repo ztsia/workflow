@@ -80,6 +80,13 @@ the scripts with Bash `run_in_background`, one notice each, never polled. Never 
    touched re-runs; every other row is carried, `carried from <sha> (round n)`). `--full` on a head that already
    has its verdict moves that verdict's round files to `V/prev` first.
 3. **Prepare check, then the plan.**
+   - **New screens** (not in suites mode). `qa affected --base <base.sha> --map <map> [--seed-names <f>] --json`: its
+     `unmapped` lists the changed UI files no map entry walks. None: go on. Some: `qa sandbox up --at HEAD` (its
+     `appUrl`), then ONE mapper, Agent `workflow:qa-mapper`, prompt first line `phase: prepare`, then `cli`, `base`,
+     `spec`, `roles` (the `login` keys of `qa.json`, or `none`), `url` (the `appUrl`), `check: script …` (the prepare
+     check runs after it returns: never run it, never wait on a background job), `targets: …`, a blank line, and one
+     `- <file>` line per unmapped file. A mapper that fails, or a sandbox that does not come up: say so, and go on.
+     A mapper that changed a QA file re-plans the round, as after a repair (`qa round plan … --replan`).
    - `qa prepare check --slug <slug> --base <base.sha> --map <map> [--seed-names <f>]`. Exit 0 or 3: go on.
      Exit 1: ONE repair round. Agent `workflow:qa-mapper`, prompt first line `phase: repair`, then `cli`, `base`,
      `url` (the head sandbox's `appUrl`, from `qa sandbox status <the sandbox prepare.md names>`), and the lines of

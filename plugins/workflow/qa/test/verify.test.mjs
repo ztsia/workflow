@@ -114,6 +114,8 @@ function stepsFor(root, V) {
     },
     'report comment': () => ({ stdout: 'no comment: no PR for this branch\n' }),
     'sandbox status': () => ({ stdout: JSON.stringify({ name: 'sb1', appUrl: 'http://127.0.0.1:18001', alive: true }) }),
+    affected: () => ({ stdout: '{\n  "unmapped": []\n}\n' }),
+    'sandbox up': () => ({ stdout: `${JSON.stringify({ name: 'sb1', appUrl: 'http://127.0.0.1:18001' })}\n` }),
   };
 }
 
@@ -384,6 +386,112 @@ describe('verify: send-backs', () => {
     assert.equal(last(r), 'headless judge failed: verdict.md still fails the check (R6: line 1 must be REJECT: ch:2 FAIL) — continue by hand from step 7 (judge)');
     assert.ok(fs.existsSync(path.join(s.V, 'verdict.md')));
     assert.ok(!fs.existsSync(path.join(s.V, 'report.html')));
+  });
+});
+
+describe('verify: new screens (the mapper writes the entries no map entry walks, before the prepare check)', () => {
+  const notSuites = () => ({ applies: false, why: 'the test has a map' });
+  // The affected step names the changed UI files no entry walks; the sandbox up answers with its url.
+  const newScreens = (unmapped, argvs = []) => ({
+    affected: (argv) => { argvs.push(argv); return { stdout: `${JSON.stringify({ unmapped })}\n` }; },
+    'sandbox up': (argv) => { argvs.push(argv); return { stdout: `${JSON.stringify({ name: 'sb2', appUrl: 'http://127.0.0.1:18002' })}\n` }; },
+  });
+
+  test('a changed UI file no entry walks: qa affected --json, the head sandbox up, ONE mapper call in phase prepare, then the prepare check', async () => {
+    const argvs = [];
+    const s = setup({ deps: { suitesMode: notSuites }, steps: newScreens(['src/ui/Home.tsx', 'src/ui/List.tsx'], argvs) });
+    await s.run();
+    assert.deepEqual(s.seq.slice(0, 7), ['resolve', 'ready status', 'round plan', 'affected', 'sandbox up', 'claude mapper', 'prepare check']);
+    assert.deepEqual(argvs, [
+      ['affected', '--base', BASE, '--map', path.join(s.root, 'qa', 'map'), '--json'],
+      ['sandbox', 'up', '--at', 'HEAD'],
+    ]);
+    const mappers = s.calls().filter((c) => c.role === 'mapper');
+    assert.equal(mappers.length, 1);
+    const [mapper] = mappers;
+    assert.equal(mapper.prompt.split('\n')[0], 'phase: prepare');
+    const keys = promptLines(mapper.prompt);
+    assert.deepEqual([keys.cli, keys.base, keys.url, keys.spec], [CLI, BASE, 'http://127.0.0.1:18002', path.join(s.root, 'docs', 'spec.md')]);
+    assert.match(keys.check, /^script/, 'the mapper is told the script runs the check');
+    assert.deepEqual(mapper.prompt.split('\n').filter((l) => l.startsWith('- ')), ['- src/ui/Home.tsx', '- src/ui/List.tsx']);
+    assert.equal(s.seq.filter((x) => x === 'round plan').length, 1, 'the mapper changed no QA file: no replan');
+  });
+
+  test('no changed UI file unmapped: the affected step runs and says nothing, no sandbox up, no mapper call', async () => {
+    const argvs = [];
+    const s = setup({ deps: { suitesMode: notSuites }, steps: newScreens([], argvs) });
+    const r = await s.run();
+    assert.deepEqual(s.seq.slice(3, 5), ['affected', 'prepare check']);
+    assert.ok(!s.seq.includes('sandbox up'));
+    assert.equal(s.calls().filter((c) => c.role === 'mapper').length, 0);
+    assert.equal(r.exit, VERIFY_EXIT.REJECT);
+  });
+
+  test('the mapper changed a QA file and the prepare check passes: round plan --replan, before the run', async () => {
+    const plans = [];
+    const s = setup({
+      deps: { suitesMode: notSuites },
+      plan: { mapper: [{ usd: 0.02, files: { 'qa/map/app.json': '{"screens":[{"name":"home","steps":[{"goto":"/home"}]}]}\n' } }] },
+      steps: {
+        ...newScreens(['src/ui/Home.tsx']),
+        'round plan': (argv) => { plans.push(argv); return stepsFor(s.root, s.V)['round plan'](argv); },
+      },
+    });
+    await s.run();
+    const at = s.seq.indexOf('prepare check');
+    assert.deepEqual(s.seq.slice(at - 1, at + 2), ['claude mapper', 'prepare check', 'round plan']);
+    assert.equal(plans.length, 2, 'the round plan, then the replan');
+    assert.ok(plans[1].includes('--replan'), plans[1].join(' '));
+    assert.equal(s.seq[at + 2], 'claude planner', 'the round goes on from the new plan');
+  });
+
+  test('the mapper fails: one [3] line says so, the new screens stay unmapped, and the round goes on to the prepare check', async () => {
+    const s = setup({
+      deps: { suitesMode: notSuites },
+      steps: newScreens(['src/ui/Home.tsx']),
+      plan: { mapper: [{ exit: 1, stderr: 'boom: the mapper stopped\n' }] },
+    });
+    const r = await s.run();
+    assert.deepEqual(s.seq.slice(3, 7), ['affected', 'sandbox up', 'claude mapper', 'prepare check']);
+    assert.ok(s.said.some((l) => l.startsWith('[3] mapper (prepare) failed: ') && l.endsWith(' — the new screens stay unmapped')), s.said.join('\n'));
+    assert.equal(r.exit, VERIFY_EXIT.REJECT, 'the outcome is the round\'s, not a hand-over');
+  });
+
+  test('the head sandbox does not come up: one [3] line, no mapper, the round goes on to the prepare check', async () => {
+    const s = setup({
+      deps: { suitesMode: notSuites },
+      steps: { ...newScreens(['src/ui/Home.tsx']), 'sandbox up': () => ({ code: 1, stdout: '', stderr: 'FAIL: no port\n' }) },
+    });
+    const r = await s.run();
+    assert.deepEqual(s.seq.slice(3, 6), ['affected', 'sandbox up', 'prepare check']);
+    assert.equal(s.calls().filter((c) => c.role === 'mapper').length, 0);
+    assert.ok(s.said.includes('[3] the new screens stay unmapped: the head sandbox did not come up'), s.said.join('\n'));
+    assert.equal(r.exit, VERIFY_EXIT.REJECT);
+  });
+
+  test('the affected step crashes or prints no list: one [3] line says the check could not run, no mapper, the round goes on', async () => {
+    const s = setup({
+      deps: { suitesMode: notSuites },
+      steps: { affected: () => ({ code: 1, stdout: '', stderr: 'FAIL: the head map could not be read\n' }) },
+    });
+    const r = await s.run();
+    assert.deepEqual(s.seq.slice(3, 5), ['affected', 'prepare check']);
+    assert.equal(s.calls().filter((c) => c.role === 'mapper').length, 0);
+    assert.ok(s.said.includes('[3] the new-screen check could not run: FAIL: the head map could not be read'), s.said.join('\n'));
+    assert.equal(r.exit, VERIFY_EXIT.REJECT);
+  });
+
+  test('suites mode applies: no affected step, no sandbox, no mapper; the mode is asked of this checkout', async () => {
+    let asked = null;
+    const s = setup({
+      deps: { suitesMode: (o) => { asked = o; return { applies: true, why: 'no map entries and no stack adapter serves an app' }; } },
+      steps: newScreens(['src/ui/Home.tsx']),
+    });
+    const r = await s.run();
+    assert.equal(asked?.repoRoot, s.root);
+    assert.deepEqual(s.seq.slice(0, 4), ['resolve', 'ready status', 'round plan', 'prepare check']);
+    assert.equal(s.calls().filter((c) => c.role === 'mapper').length, 0);
+    assert.equal(r.exit, VERIFY_EXIT.REJECT);
   });
 });
 

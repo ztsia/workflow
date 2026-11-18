@@ -65,8 +65,9 @@ never edits product code.
      `qa prepare check --final`. What still fails is reported, never hand-fixed.
    - Exit 4: the app did not start at head. Report its `blocked:` line.
 
-4. **Report** the files written and the lines of `qa/seed-needs.md` (the builder's work). `qa verify` runs the same
-   check itself, before its plan. This step gets the mapper's files ready early.
+4. **Report** the files written and the lines of `qa/seed-needs.md` (the builder's work). `qa verify`
+   does this itself when the diff has changed UI files no map entry walks. Running these steps by hand only gets the
+   files ready early.
 
 ## Backfill sources
 

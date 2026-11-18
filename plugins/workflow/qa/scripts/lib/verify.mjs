@@ -31,11 +31,16 @@
 //       first: check, build, 8). Else (no verdict for HEAD, or --full: a full round again, whose `round plan --full`
 //       moves that verdict's round files to V/prev) `round plan --slug --base <sha> --map [--seed-names] --spec <path>
 //       [--full]`; V/round.json says full or incremental.
+//     3 New screens (not in suites mode): `qa affected --base <sha> --map … --json` names the changed UI files no map entry
+//       walks (`unmapped`); none -> go on. Some -> `sandbox up --at HEAD` (its appUrl; no appUrl -> one line, go on), then
+//       one headless mapper `phase: prepare` (cli, base, spec, roles, url, `check: script …`, the files). A mapper that
+//       fails -> one line, go on. A QA file it changed counts as a repair (below).
 //     3 `prepare check` 0|3 go on; 1 -> one headless mapper `phase: repair` with the lines of prepare.md that start '- ['
 //       but not '- [stub:' (none: no mapper), the head sandbox's url (`sandbox status` of the sandbox prepare.md names),
 //       `check: script …`; then `prepare check --final`; 4 -> `--final` once. --final 0|3 go on; 1|4 -> its BLOCKED
 //       verdict: report build, 8. A repair that changed any QA file of the PR (the branch's qa/ and map) re-plans the round for this head: `round plan … --replan [--full]` (the entries the
-//       mapper changed then re-run), and V/round.json is read again.
+//       mapper changed then re-run), and V/round.json is read again. A new-screen mapper that changed one re-plans the
+//       same way, also when the prepare check then passes.
 //       Plan (a full round, or no V/charter.md): headless planner `phase: plan`. No fresh charter.md, or its return says its map check
 //       failed -> that line once, by resuming its session; still so -> hand over at 3 (plan). `plan check`: 3 -> the line
 //       once (resume), check again, 3 again -> hand over; 1 -> the lines starting '- [', '- mut:' or '- stub:' ONCE
@@ -73,6 +78,8 @@ import path from 'node:path';
 import { ROLES, SECURITY_TOOLS, agentToolsOf, claudeBin, roleConfig, runHeadless } from './headless.mjs';
 import { parseVerdict } from './verdict.mjs';
 import { ensureVGitignore } from './util.mjs';
+import { loadProfile } from './profile.mjs';
+import { suitesModeApplies } from './suitesmode.mjs';
 
 export const VERIFY_EXIT = Object.freeze({ ACCEPT: 0, REJECT: 1, 'NEEDS YOU': 2, notRun: 3, BLOCKED: 4, handover: 5, usage: 64 });
 export const UNTIL = Object.freeze(['resolve', 'round', 'prepare', 'plan', 'security', 'run', 'eyes', 'judge']);
@@ -350,12 +357,59 @@ function qaState(c) {
 
 const problemLines = (md) => String(md ?? '').split('\n').filter((l) => l.startsWith('- ['));
 
-// 3 ── the prepare check, the mapper's one repair round; true when it ends the round BLOCKED
+const jsonOf = (text) => { try { const v = JSON.parse(text); return v && typeof v === 'object' ? v : null; } catch { return null; } };
+
+// The checkout's qa.json, as qa.mjs reads it for the same root; none -> {}.
+function profileOf(c) {
+  try { return loadProfile(c.o.mainRoot ?? c.o.root).profile; } catch { return {}; }
+}
+
+// 3 ── the new screens: a changed UI file that no map entry walks is never seen by the run, so the mapper writes its
+// entries before the prepare check. Suites mode has no screens to map. Only the mapper's own handover is swallowed.
+async function mapNew(c) {
+  const profile = profileOf(c);
+  const mainRoot = c.o.mainRoot ?? c.o.root;
+  if ((c.d.suitesMode ?? suitesModeApplies)({ repoRoot: c.o.root, mainRoot, profile, map: c.t.map ?? null }).applies) return;
+  const a = await step(c, '3', 'affected', ['affected', '--base', c.t.base.sha, ...mapArgs(c), ...seedArgs(c), '--json']);
+  const unmapped = a.code === 0 && !crashed(a) ? jsonOf(a.stdout)?.unmapped : undefined;
+  if (!Array.isArray(unmapped)) {
+    c.d.say(`[3] the new-screen check could not run: ${a.code === 0 && !crashed(a) ? 'its output is not a list' : whyOf(a)}`);
+    return;
+  }
+  if (!unmapped.length) return;
+  const up = await step(c, '3', 'sandbox up', ['sandbox', 'up', '--at', 'HEAD']);
+  const url = up.code === 0 && !crashed(up) ? jsonOf(up.stdout)?.appUrl : null;
+  if (!url) { c.d.say('[3] the new screens stay unmapped: the head sandbox did not come up'); return; }
+  c.d.say(`[3] ${unmapped.length} changed UI file(s) no map entry walks: the mapper writes their entries`);
+  const before = qaState(c);
+  const roles = Object.keys(profile.login ?? {});
+  let failure = null;
+  try {
+    await headless(c, 'mapper', { from: STEP.prepare, prompt: [
+      'phase: prepare', `cli: ${c.o.cli}`, `base: ${c.t.base.sha}`, `spec: ${c.spec}`, `roles: ${roles.length ? roles.join(', ') : 'none'}`,
+      `url: ${url}`,
+      'check: script — qa verify runs the prepare check after you return: do not run it, and never start or wait on anything in the background',
+      'targets: the changed files below that no map entry walks. Name the screens and routes they render from the router, and write their entries',
+      '', ...unmapped.map((f) => `- ${f}`),
+    ].join('\n') });
+  } catch (e) {
+    if (!(e instanceof Stop) || e.kind !== 'handover' || !e.line.startsWith('headless mapper failed: ')) throw e;
+    failure = e.line.replace(/^headless mapper failed: /, '').replace(/ — continue by hand from step .*$/, '');
+  }
+  if (qaState(c) !== before) c.repaired = true;
+  if (failure !== null) c.d.say(`[3] mapper (prepare) failed: ${failure} — the new screens stay unmapped`);
+}
+
+// 3 ── the new screens, then the prepare check, the mapper's one repair round; true when it ends the round BLOCKED
 async function prepare(c) {
+  await mapNew(c);
   const argv = ['prepare', 'check', '--slug', c.slug, '--base', c.t.base.sha, ...mapArgs(c), ...seedArgs(c)];
   const r = await step(c, '3', 'prepare check', argv);
   if (r.code === VERIFY_EXIT.usage) throw usage(r);
-  if ((r.code === 0 || r.code === 3) && !crashed(r)) return false;
+  if ((r.code === 0 || r.code === 3) && !crashed(r)) {
+    if (c.repaired) await replan(c);
+    return false;
+  }
   if (r.code === 1 && !crashed(r)) {
     const md = readText(path.join(c.V, 'prepare.md'));
     const lines = problemLines(md).filter((l) => !l.startsWith('- [stub:'));
@@ -368,7 +422,7 @@ async function prepare(c) {
         'check: script — qa verify runs the prepare check after you return: do not run it, and never start or wait on anything in the background',
         '', ...lines,
       ].join('\n') });
-      c.repaired = qaState(c) !== before;
+      c.repaired = c.repaired || qaState(c) !== before;
     }
   } else if (r.code !== 4 || crashed(r)) throw failed('prepare check', r, STEP.prepare);
   const f = await step(c, '3', 'prepare check --final', [...argv, '--final']);
