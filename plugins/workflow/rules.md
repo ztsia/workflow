@@ -60,26 +60,41 @@ To compact instead, write the handoff first; afterwards read it and carry on fro
 
 ## Models and subagents
 
-**The main session is the brain; subagents are its hands.** The main session runs on the strongest
-model. It talks with the owner, makes every decision, works on the non-negotiables, writes the briefs
-and reviews what comes back. Subagents carry out work that's decided but too long or repetitive to
-be worth the strongest model's price. This is the owner's standing request: spawn them without being
-asked. **Why:** if the strongest model hands the thinking down, the project pays for a brain and gets
-a smaller one.
+**The main session is the brain; subagents are its hands.** It runs on Sonnet at `high` with an Opus
+advisor (the project's `.claude/settings.json`: `model`, `effortLevel`, `advisorModel`); a slice or
+change the project marks for Opus switches with `/model`. It talks with the owner, makes every
+decision, works on the non-negotiables, writes the briefs and reviews what comes back. Subagents carry
+out the work that's decided. This is the owner's standing request: spawn them without being asked.
+**Why:** if the main session hands the thinking down, the project pays for a brain and gets a smaller
+one; if it does the filling itself, every line it reads and writes is re-read on every later call.
 
 **Use the `brief` skill before every Agent call that does work, and whenever a report or diff falls
 short.** It holds the brief's template and checks, agents running at once, waiting on long runs and
 what to do on a miss. A brief that leaves thinking to the subagent is the main session's failure.
 
-**Choose the model per task**, by what's left once the brief is written: **Haiku at `high`**
-(`workflow:implementer`'s default) for anything the brief fully specifies; **Sonnet at `medium` or
-`high`** when what's left can't be written down in advance; **the main session itself** for a
-change under about 100 lines, a design call, or a non-negotiable's logic.
+**Shape versus fill.** The main session writes only the shape: interfaces, types, seams, a
+non-negotiable's logic, a design call. Haiku implementers write all the rest, the first example of a
+pattern included; the main session reviews that example once, then Haiku copies it. **Sonnet** only
+with a `Sonnet because:` line in the brief (an unknown cause, a large body of unfamiliar code, a
+second miss); a hook refuses it otherwise. The `brief` skill has the detail.
+
+**A unit table before building.** After reading the slice brief (scouts for anything big) and before
+building, commit `docs/plans/<brief's file name>`: one table, `| unit | what | who | model | after |`,
+one row per unit, the shape units marked `main`, each pattern's example unit marked. Revise it once at
+most, in a commit; the PR lists every deviation from it.
+
+**Context diet.** Every token in the main session's context is re-read on every call. Read in ranges,
+never a whole file; filter test and build output; send a scout for anything that means reading a lot
+to learn a little; never run a cost command mid-turn.
+
+**The advisor**, where the session has one, at three points: after reading and before committing the
+unit table; on a repeated failure; before calling the slice done. Each consult re-reads the whole
+transcript at the advisor's price, so not more.
 
 | Agent | What it's for |
 |---|---|
 | `workflow:implementer` | A batch already decided, owning its own files; several in parallel, in the background |
-| `workflow:qa-reviewer` | Always through the `qa` skill. It spawns its sweep and `workflow:qa-eyes` |
+| `workflow:qa-reviewer` | Always through the `qa` skill: `qa verify` runs it headless, with `workflow:qa-eyes`, `qa-mapper` and `qa-security` |
 | `workflow:scout` (Haiku) | Something too big to read, such as a long log; not what one `grep` answers |
 
 - **Review every report and diff** before committing it. A report is a claim, not proof.

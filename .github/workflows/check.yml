@@ -17,3 +17,5 @@ jobs:
           for f in $(git ls-files '*.mjs'); do node --check "$f"; done
       - name: rules.md under 8,000 characters
         run: test "$(wc -c < plugins/workflow/rules.md)" -lt 8000
+      - name: tests
+        run: node --test plugins/workflow/test/*.test.mjs
