@@ -74,13 +74,25 @@ describe('charter and waivers', () => {
   test('parseCharter reads each row: its case, advisory, manual with its ask, and the expectations it cites', () => {
     const rows = parseCharter(CHARTER);
     assert.deepEqual(rows.map((r) => r.id), ['ch:1', 'ch:2', 'ch:3', 'ch:4']);
-    assert.deepEqual(rows[0], { id: 'ch:1', text: 'the list shows the new column', advisory: false, manual: false, ask: null, expectations: ['column-shown'] });
+    assert.deepEqual(rows[0], { id: 'ch:1', text: 'the list shows the new column', advisory: false, manual: false, ask: null, expectations: ['column-shown'], suites: [] });
     assert.deepEqual(rows[1].expectations, ['empty-text', 'empty-icon']);
     assert.equal(rows[2].manual, true);
     assert.equal(rows[2].ask, 'Did a real key work when you tried it?');
     assert.equal(rows[3].advisory, true);
     assert.deepEqual(rows[3].expectations, ['row-height']);
     assert.deepEqual(parseCharter(null), []);
+  });
+
+  test('parseCharter reads suite citations: by: suite unit, suite lint; beside an expectation; with and or +', () => {
+    const [a] = parseCharter('- [ch:6] ruff and pytest are clean — axis: regression — rung 4: the suites run whole in suites mode — by: suite unit, suite lint');
+    assert.deepEqual(a.suites, ['unit', 'lint']);
+    assert.deepEqual(a.expectations, []);
+    const [b] = parseCharter('- [ch:7] the list is sorted — axis: copy — by: suite unit; expectation column-shown');
+    assert.deepEqual(b.suites, ['unit']);
+    assert.deepEqual(b.expectations, ['column-shown']);
+    assert.deepEqual(parseCharter('- [ch:8] c — axis: x — by: suite unit and suite lint')[0].suites, ['unit', 'lint']);
+    assert.deepEqual(parseCharter('- [ch:8] c — axis: x — by: suite unit + lint')[0].suites, ['unit', 'lint']);
+    assert.deepEqual(parseCharter('- [ch:9] d — axis: x — by: expectation foo')[0].suites, []);
   });
 
   test('a manual advisory row keeps its ask without the advisory tail', () => {
@@ -254,6 +266,36 @@ describe('draftVerdict with a charter', () => {
   test('a spec criterion no expectation proves leaves the draft PENDING for the judge', () => {
     const charterMd = `${CHARTER}- [ch:5] the page reads well — axis: copy — by: eyes\n`;
     assert.equal(draftVerdict(base(), { charterMd, waiversMd: '- [ch:3] waived: no key (u, 2026-11-12)' }).verdict, 'PENDING');
+  });
+
+  describe('suite evidence in a charter row', () => {
+    const SUITES = '# Charter — feat-x\nsecurity: no — none\n\n- [ch:6] ruff and pytest are clean — axis: regression — rung 4: the suites run whole in suites mode — by: suite unit, suite lint\n';
+    const suite = (id, result) => ({ id: `suite:${id}`, viewport: null, name: `suite ${id}`, result, detail: `suite ${id} detail` });
+
+    test('both suites PASS: the row is PASS and the draft is ACCEPT, not PENDING for the judge', () => {
+      const d = draftVerdict(results({ expectations: [suite('unit', 'met'), suite('lint', 'met')] }), { charterMd: SUITES });
+      assert.equal(d.verdict, 'ACCEPT');
+      assert.equal(d.criteria.pass, 2);
+    });
+
+    test('one suite FAILs: the row FAILs and the draft is REJECT', () => {
+      const d = draftVerdict(results({ expectations: [suite('unit', 'met'), suite('lint', 'NOT MET')] }), { charterMd: SUITES });
+      assert.equal(d.verdict, 'REJECT');
+    });
+
+    test('a cited suite with no row did not run: UNVERIFIABLE, NEEDS YOU, and a gap that says so', () => {
+      const r = results({ expectations: [suite('unit', 'met')] });
+      const d = draftVerdict(r, { charterMd: SUITES });
+      assert.equal(d.verdict, 'NEEDS YOU');
+      assert.match(d.md, /^- \[gap:suite\] suite lint did not run: /m);
+      assert.equal(verdictOutcome({ verdictMd: d.md, results: r, charterMd: SUITES }).outcome, 'NEEDS YOU', 'the judged verdict keeps it too');
+    });
+
+    test('a mixed citation derives from both the suite row and the expectation', () => {
+      const charterMd = '- [ch:7] the list is sorted — axis: copy — by: suite unit; expectation column-shown\n';
+      assert.equal(draftVerdict(results({ expectations: [suite('unit', 'NOT MET'), met('column-shown')] }), { charterMd }).verdict, 'REJECT');
+      assert.equal(draftVerdict(results({ expectations: [suite('unit', 'met'), met('column-shown')] }), { charterMd }).verdict, 'ACCEPT');
+    });
   });
 
   test('a test or doc record naming a criterion proves it too', () => {

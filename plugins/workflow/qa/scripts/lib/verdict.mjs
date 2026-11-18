@@ -169,7 +169,9 @@
 //     A Criteria row's status is PASS | FAIL | UNVERIFIABLE | BLOCKED | WAIVED, and the criteria line counts all five:
 //       'criteria: <p> pass · <f> fail · <u> unverifiable · <b> blocked · <w> waived' (parseVerdict also reads 0.6.0's
 //       three-count line, blocked and waived 0). countRows(rows) -> those counts; criteriaLine(counts) -> that line.
-//     parseCharter(md) -> [{ id, text, advisory, manual, ask, expectations }], one per '- [ch:<n>] …' line.
+//     parseCharter(md) -> [{ id, text, advisory, manual, ask, expectations, suites }], one per '- [ch:<n>] …' line.
+//       expectations: the names '… by: expectation <name>' cites; suites: the ids '… by: suite <id>' cites (the whole-suite
+//       rows, suite:<id>; several by ',', '+' or 'and'; [] when none). Both may sit in one by: field, split by ';'.
 //       advisory  the line ends ' — advisory': a row the planner added beyond the spec; checked, reported, never gates.
 //       manual    it says ' — by: manual': nothing the sandbox can observe proves it; ask = the text after ' — ask: '.
 //       text      the case, up to its first ' — '.   expectations: the names after 'by: expectation(s) '.
@@ -212,10 +214,12 @@
 //         never shows in the tree), so an element the PR meant to change would read as unchanged. Every other Major (corroborated on a new or unchanged screen, console, tour stuck, routes beyond
 //         the Blocker ones, unlisted, unmapped, survived mutants, security Medium) is reported and never gates.
 //       verdict = decide(...).outcome, PENDING also when a judge or eyes row is left, when there is no charter and no
-//         expectation, or when a deciding charter row has no expectation to derive it from (the judge rules it).
+//         expectation, or when a deciding charter row has no expectation or suite to derive it from (the judge rules it).
 //         With a charter, a deciding row's draft status is derived from the expectations it cites (and test and doc
-//         records naming it as their criterion): any FAIL -> FAIL; all PASS or WAIVED -> PASS; any BLOCKED -> BLOCKED;
-//         else UNVERIFIABLE.
+//         records naming it as their criterion) and from the suite:<id> rows it cites: any FAIL -> FAIL; all PASS or
+//         WAIVED -> PASS; any BLOCKED -> BLOCKED; else UNVERIFIABLE. A cited suite with no suite:<id> row counts as
+//         UNVERIFIABLE, and a Gaps row '- [gap:suite] suite <id> did not run: …' says so. A row that cites only suites
+//         is derived too, so it is not PENDING for the judge. verdictOutcome gates on these derived rows as well.
 //       Notes gain, when there is something to say: '- advisory: <n> charter row(s) beyond the spec (<ids>); checked
 //         and reported, never gating'; '- blocked: <n> item(s) the tool could not check (Gaps BLOCKED rows); they never
 //         fail the PR: check again later, or merge on the user's word'; '- waived [<id>]: <reason> (<who>, <date>);
@@ -341,7 +345,15 @@ export function parseCharter(md) {
         if (/^[A-Za-z0-9._-]+$/.test(n)) expectations.push(n);
       }
     }
-    rows.push({ id: m[1], text: core.split(' — ')[0].trim(), advisory, manual, ask, expectations });
+    // A suite citation runs to the next ';' or the next 'expectation' (a list of suites may continue after a comma).
+    const suites = [];
+    for (const hit of by.matchAll(/\bsuites?\s+(.+?)(?=;|\s*,?\s*\bexpectations?\s|$)/g)) {
+      for (const name of hit[1].split(/\s*(?:,|\+|\band\b)\s*/)) {
+        const n = name.replace(/^suites?\s+/, '').trim();
+        if (/^[A-Za-z0-9._-]+$/.test(n)) suites.push(n);
+      }
+    }
+    rows.push({ id: m[1], text: core.split(' — ')[0].trim(), advisory, manual, ask, expectations, suites });
   }
   return rows;
 }
@@ -573,15 +585,26 @@ export function draftVerdict(results, { security = [], eyes = null, charterMd = 
   // derives is the judge's to rule, so the draft is PENDING.
   const pending = findings.filter((f) => f.severity === 'judge' || f.severity === 'eyes').map((f) => f.id);
   let decideRows = rows;
+  const charterRows = [];
   if (charter.length) {
     const links = linksOf(charter, r);
     decideRows = rows.filter((x) => /^ch:\d+$/.test(x.id) || x.id.startsWith('suite:'));
     const ruled = new Set(decideRows.map((x) => x.id));
+    const missing = new Set();
     for (const c of charter) {
       if (ruled.has(c.id) || c.advisory) continue;
-      const status = derived(rows.filter((x) => x.id.startsWith('exp:') && (links.get(x.name) ?? []).includes(c.id)).map((x) => x.status));
-      if (status) decideRows.push({ id: c.id, status });
+      const statuses = rows.filter((x) => x.id.startsWith('exp:') && (links.get(x.name) ?? []).includes(c.id)).map((x) => x.status);
+      for (const s of c.suites) {
+        const suiteRow = rows.find((x) => x.id === `suite:${s}`);
+        if (suiteRow) statuses.push(suiteRow.status);
+        else { statuses.push('UNVERIFIABLE'); missing.add(s); }
+      }
+      const status = derived(statuses);
+      if (status) { decideRows.push({ id: c.id, status }); charterRows.push({ id: c.id, status }); }
       else if (!r.blocked) pending.push(c.id);
+    }
+    if (missing.size) {
+      gaps.push({ id: 'gap:suite', text: `${[...missing].map((s) => `suite ${s} did not run`).join(', ')}: the charter rows that cite them are UNVERIFIABLE` });
     }
   } else if (r.expectations.length === 0 && !r.blocked) pending.push('gap:criteria');
   const gate = decide({ rows: decideRows, charter, waivers, findings, gates: new Set(gates), blocked, runBlocked: Boolean(r.blocked), pending, history: r.round?.history ?? {} });
@@ -628,7 +651,7 @@ export function draftVerdict(results, { security = [], eyes = null, charterMd = 
     'cost: plan $0 · eyes $0 · judge $0 · runner 0 · total $0',
   ].join('\n') + '\n';
 
-  return { verdict, criteria, rows, findings, gaps, blocked, gates, md };
+  return { verdict, criteria, rows, findings, gaps, blocked, gates, charterRows, md };
 }
 
 // Which round this is, and where its carried rows and security review come from (ROUNDS).
@@ -783,8 +806,10 @@ export function parseVerdict(md) {
 export function verdictOutcome({ verdictMd, results, security = [], eyes = null, charterMd = null, waiversMd = null }) {
   const v = parseVerdict(verdictMd);
   const d = draftVerdict(results, { security, eyes, charterMd, waiversMd });
+  // The charter rows the draft derived (from expectations and suites) decide too, unless the judge wrote their row.
+  const judged = new Set(v.criteria.map((x) => x.id));
   return decide({
-    rows: v.criteria, charter: parseCharter(charterMd), waivers: waiverMap(parseWaivers(waiversMd)), findings: v.findings,
+    rows: [...v.criteria, ...d.charterRows.filter((x) => !judged.has(x.id))], charter: parseCharter(charterMd), waivers: waiverMap(parseWaivers(waiversMd)), findings: v.findings,
     gates: new Set(d.gates), blocked: d.blocked, runBlocked: Boolean(results.blocked), history: results.round?.history ?? {},
   });
 }

@@ -416,3 +416,20 @@ describe('planCheck and the CLI', () => {
     assert.match(fs.readFileSync(path.join(V, 'plan-check.md'), 'utf8'), /\n## Problems\n- none\n$/);
   });
 });
+
+describe('plan check: a charter suite citation outside suites mode', () => {
+  test('a row that cites a suite is a problem saying to name a test; --drop takes the citation out of the charter', async () => {
+    const repo = gitRepo();
+    const V = path.join(repo.dir, 'qa', 'x');
+    write(V, 'charter.md', '# Charter — x\nsecurity: no — none\n\n- [ch:6] ruff and pytest are clean — axis: regression — by: suite unit, suite lint\n- [ch:7] the rows read — axis: copy — by: suite unit; expectation rows\n');
+    write(V, 'expectations.json', []);
+    const check = await planCheck({ mainRoot: repo.dir, repoRoot: repo.dir, profile: PROFILE, slug: 'x', V, head: repo.head });
+    assert.deepEqual(check.problems.map((p) => [p.name, p.problem]), [
+      ['ch:6', 'suite evidence runs only in suites mode (a project with no screens): name a test instead'],
+      ['ch:7', 'suite evidence runs only in suites mode (a project with no screens): name a test instead'],
+    ]);
+    assert.match(planCheckMd(check), /\n## Problems\n- \[ch:6\] suite evidence runs only in suites mode \(a project with no screens\): name a test instead\n- \[ch:7\] suite evidence runs only in suites mode/);
+    assert.deepEqual(dropFailed({ V, check }), { expectations: 0, mutants: 0, stubs: 0 });
+    assert.equal(fs.readFileSync(path.join(V, 'charter.md'), 'utf8'), '# Charter — x\nsecurity: no — none\n\n- [ch:6] ruff and pytest are clean — axis: regression — by:\n- [ch:7] the rows read — axis: copy — by: expectation rows\n');
+  });
+});
