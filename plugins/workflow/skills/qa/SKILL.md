@@ -59,6 +59,9 @@ skips it (`setup.md`).
 3. **Publish** when that `publish:` line is there: `verify.md` step 8, with the Artifact tool. The script
    can't call it. Give the owner the link.
 
+A branch that adds screens needs no mapping first: when its diff has UI files no map entry walks, `qa verify`
+starts the mapper on them before its prepare check, and the new entries are walked in the same run.
+
 The reviewer, the eyes pass, the mapper and the security review run as headless sessions on the models in
 `qa.json` `agents.<role>.model` (defaults: mapper Haiku, planner, judge and security Sonnet, eyes Opus).
 A project that runs QA on Sonnet sets `agents.eyes.model` there.

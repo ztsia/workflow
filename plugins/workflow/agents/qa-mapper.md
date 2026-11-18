@@ -18,7 +18,9 @@ Run the CLI at the absolute path your brief gives (written `qa` below); with no 
 ## You receive
 
 - **targets**: screen names to write or repair, routes (`/candidates`), or an area. A route list may come
-  with them; if it does not, take the routes from the app's navigation in the probe.
+  with them; if it does not, take the routes from the app's navigation in the probe. From `qa verify` in phase
+  prepare, the targets are changed files no map entry walks: name the screens and routes they render from the
+  router, and write those entries.
 - **CLI**: the absolute path of `qa`.
 - **base URL** of the running app.
 - **roles**: the keys of qa.json `login`. Never invent one.
