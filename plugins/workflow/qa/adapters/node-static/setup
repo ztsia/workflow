@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# setup: install the Node dependencies, with npm ci when a lockfile pins them.
+set -euo pipefail
+
+if [[ ! -f "$QA_ROOT/package.json" ]]; then
+  echo "skip: no package.json"
+  exit 0
+fi
+cd "$QA_ROOT"
+if [[ -f package-lock.json ]]; then
+  exec npm ci --no-audit --no-fund
+fi
+exec npm install --no-audit --no-fund

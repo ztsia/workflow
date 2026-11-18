@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa screen map (one file under qa/map/)",
+  "description": "How to reach each screen and what to capture there. A file is an object with an optional area, named flows and screens. Selectors are Playwright selectors, with role plus accessible name first; $seed.* tokens name seeded records so no id lives in the map.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "description": "Optional pointer to this schema, for editors" },
+    "area": { "type": "string", "description": "Area for the file's screens; a screen's area is this, or the file's basename when omitted" },
+    "flows": {
+      "type": "object",
+      "description": "Named step lists, global across map files. Reused by name from a screen's flow or a { flow } step. Names may not start with login:",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/step" }
+      }
+    },
+    "screens": {
+      "type": "array",
+      "description": "The screens this file defines",
+      "items": { "$ref": "#/$defs/screen" }
+    }
+  },
+  "$defs": {
+    "screen": {
+      "type": "object",
+      "description": "One screen: how to reach it and what to capture there",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Screen name; used in capture file names and in --only globs" },
+        "role": { "type": "string", "description": "A key of qa.json login; the walk logs in as that role before any step" },
+        "flow": { "type": "string", "description": "Flow name walked before steps: a name from flows, or a built-in login:<role>" },
+        "steps": {
+          "type": "array",
+          "description": "Steps run after the flow; a screen needs flow, steps, or both",
+          "items": { "$ref": "#/$defs/step" }
+        },
+        "viewports": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Viewport names this screen is walked at; omitted means every viewport"
+        },
+        "modes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Profile mode names to walk this screen in; accepted now, walked from step 3"
+        },
+        "record": { "type": "boolean", "description": "Record the walk on video, with click rings" },
+        "watch": { "type": "string", "description": "Default CSS selector of elements to crop separately on every capture of this screen" },
+        "tour": {
+          "type": ["boolean", "object"],
+          "description": "The tour on this screen's last capture: false turns it off; an object's options merge over qa.json tour",
+          "additionalProperties": false,
+          "properties": {
+            "max": { "type": "integer" },
+            "hover": { "type": "boolean" },
+            "maxHover": { "type": "integer" },
+            "open": { "type": "array", "items": { "type": "string" }, "description": "Extra selectors of controls to open" },
+            "skip": { "type": "array", "items": { "type": "string" }, "description": "Selectors of controls never to open" }
+          }
+        },
+        "requestOverrides": {
+          "type": "array",
+          "description": "Network requests to answer with fixed JSON instead of the real response",
+          "items": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string", "description": "URL of the request to override" },
+              "json": { "description": "JSON body to answer the request with" }
+            }
+          }
+        },
+        "origin": { "type": "string", "description": "Who added the screen, e.g. \"verify:<slug>\"; such screens can be pruned" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Globs of the source files this screen covers"
+        },
+        "expectData": {
+          "type": "string",
+          "description": "qa ready: text (or /re/flags) a row of seeded data shows on this screen; a capture without it is an empty-data screen"
+        },
+        "emptyOk": {
+          "type": "boolean",
+          "description": "qa ready: true when the empty state is the point of this entry (an empty search), so it is never an empty-data screen"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "description": "One step: exactly one action key, plus its modifiers",
+      "additionalProperties": false,
+      "properties": {
+        "goto": { "type": "string", "description": "Navigate to a path or URL, e.g. \"/candidates\"" },
+        "click": { "type": "string", "description": "Click the matched element. Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "clickAll": { "type": "string", "description": "Click every matched element, in order. Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "fill": { "type": "string", "description": "Type the step's value into the matched field. Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "setFiles": { "type": "string", "description": "Set the files of the matched file input (see files). Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "clearStorage": {
+          "type": ["string", "array"],
+          "items": { "type": "string" },
+          "description": "Remove browser storage keys matching this regex, or each regex in an array"
+        },
+        "hover": { "type": "string", "description": "Hover over the matched element. Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "press": { "type": "string", "description": "Press a keyboard key on the page, e.g. \"Enter\"" },
+        "waitFor": { "type": "string", "description": "Wait until the matched element is visible. Playwright selector; prefer role=<role>[name=\"<accessible name>\"]" },
+        "wait": { "type": "integer", "description": "Pause for this many milliseconds" },
+        "reload": { "type": "boolean", "description": "Reload the page; true" },
+        "back": { "type": "boolean", "description": "Go back in history; true" },
+        "forward": { "type": "boolean", "description": "Go forward in history; true" },
+        "capture": { "type": "string", "description": "Capture the screen under this state name; the name becomes part of the file name" },
+        "flow": { "type": "string", "description": "Call a named flow inline; its steps are spliced in at this point" },
+        "tour": {
+          "type": ["boolean", "object"],
+          "description": "Run the tour at this point of the walk: true, or options that merge over qa.json tour",
+          "additionalProperties": false,
+          "properties": {
+            "max": { "type": "integer" },
+            "hover": { "type": "boolean" },
+            "maxHover": { "type": "integer" },
+            "open": { "type": "array", "items": { "type": "string" } },
+            "skip": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "value": {
+          "type": ["string", "number"],
+          "description": "The text or number that fill types into the field; $seed.* tokens are resolved in it"
+        },
+        "files": {
+          "type": ["string", "array"],
+          "items": { "type": "string" },
+          "description": "File path, or array of paths, that setFiles sets on the input"
+        },
+        "optional": { "type": "boolean", "description": "Modifier: the step times out after 3 s and its failure is ignored" },
+        "watch": { "type": "string", "description": "Modifier on capture: CSS selector (document.querySelectorAll) of elements to crop separately" },
+        "expandEach": { "type": "string", "description": "Modifier on capture: Playwright selector of toggles clicked open, one at a time, before capture. Prefer role=<role>[name=\"<accessible name>\"]" }
+      }
+    }
+  }
+}

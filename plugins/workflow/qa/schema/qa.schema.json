@@ -1,0 +1,610 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa profile (qa.json at the repo root)",
+  "description": "Credentials are never values here: a credential is the NAME of an environment variable.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "map": {
+      "type": "string"
+    },
+    "seedNames": {
+      "type": "string",
+      "description": "JSON file naming seeded records for $seed.* in the map (default qa/seed.json)"
+    },
+    "base": {
+      "type": "string",
+      "pattern": "^(sandbox|https?://.+)$"
+    },
+    "integrationBranch": {
+      "type": "string",
+      "description": "The branch PRs merge into (e.g. staging/master): the default base of ready, verify and affected, before origin/HEAD, main and master"
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max": {
+          "type": "integer"
+        },
+        "retryWaitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "wait before the runner's one retry of a BLOCKED sandbox up (default 15000)"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cacheKeep": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "base captures kept in qa-artifacts/cache (default 5)"
+        }
+      }
+    },
+    "viewports": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ports": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "band": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "reserved": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "extra": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "offsets of the ports the app opens beside its own (a mock server at PORT+300): every sandbox reserves port + each offset, and no two sandboxes overlap"
+        }
+      }
+    },
+    "workers": {
+      "type": "integer"
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "type": "string"
+        }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "healthPath": {
+          "type": "string"
+        },
+        "healthTimeoutMs": {
+          "type": "integer"
+        },
+        "settings": {
+          "type": "object"
+        },
+        "setup": {
+          "type": "string"
+        },
+        "up": {
+          "type": "string"
+        },
+        "down": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "build": {
+          "type": "string"
+        },
+        "serve": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "string"
+        },
+        "reset": {
+          "type": "string"
+        },
+        "test": {
+          "type": "string"
+        },
+        "logins": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "each": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "settle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeoutMs": {
+          "type": "integer"
+        },
+        "quietMs": {
+          "type": "integer"
+        },
+        "hidden": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "clock": {
+      "type": "string",
+      "description": "Browser clock during capture: 'seed' (default) freezes it at the sandbox's seed start, 'off' leaves it real, an ISO time freezes it there"
+    },
+    "volatile": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Regexes of text the seed cannot pin (a seed-time stamp); masked in both trees before the diff"
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The seven page checks run on every capture (step 3)",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "touchBelow": {
+          "type": "integer",
+          "description": "A viewport narrower than this is touch: 48 px targets and the keyboard check"
+        },
+        "keyboardHeight": {
+          "type": "integer",
+          "description": "Viewport height while the on-screen keyboard is open"
+        }
+      }
+    },
+    "tour": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The tour on each screen's last capture (step 3); a screen's own tour key merges over it",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "max": {
+          "type": "integer",
+          "description": "Popup controls opened per tour"
+        },
+        "hover": {
+          "type": "boolean"
+        },
+        "maxHover": {
+          "type": "integer"
+        },
+        "open": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Extra selectors of controls to open"
+        },
+        "skip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Selectors of controls never to open"
+        }
+      }
+    },
+    "stepTimeoutMs": {
+      "type": "integer"
+    },
+    "maxElementsPerCapture": {
+      "type": "integer"
+    },
+    "watch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "palette": {
+      "type": "object"
+    },
+    "writes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "block": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ignoreErrors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "login": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "form",
+              "storage-state",
+              "manual"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "from": {
+            "enum": [
+              "env",
+              "adapter"
+            ]
+          },
+          "user": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "submit": {
+            "type": "string"
+          },
+          "done": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "urlNot": {
+                "type": "string"
+              },
+              "waitFor": {
+                "type": "string"
+              }
+            }
+          },
+          "file": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sensitive": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "security": {
+      "type": "array"
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "description": "Human limits per metric name: a number replaces the default, null drops it. Names: screen.readyMs, screen.bytes, screen.requests, screen.longTaskMs, screen.heapBytes, server.appMs, server.dbMs, server.queries; unknown names are ignored"
+    },
+    "eyes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The project's own eyes-pass questions, asked of every changed or new screen after the six core ones"
+        }
+      }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The route sweep: the table of routes, the request headers per role, and the origin probes",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "false skips the sweep on every side (default true)"
+        },
+        "table": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The route table, a path relative to the tree (default: the first that exists of qa/routes.table.json, .ts, .mjs)"
+        },
+        "base": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The API base the sweep calls (default: the headers verb's baseUrl, else the sandbox's app URL)"
+        },
+        "origin": {
+          "type": "boolean",
+          "description": "true adds the foreign and null Origin probes on writes (default false)"
+        },
+        "signIn": {
+          "type": "boolean",
+          "description": "false when the sandbox answers every call as a signed-in user (a dev-user gate): the sweep plans no signed-out, no-right or other-id probe (default true)"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Request headers per role, anon included: { role: { Header-Name: ENV_NAME } }, each value read from the environment. Used for a role when the stack has no headers verb",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[A-Z_][A-Z0-9_]*$"
+            }
+          }
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "Per probe request (default 15000)"
+        }
+      }
+    },
+    "mutants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The breakage checks: the mutant registry file, and the default limit of one suite run (a test expectation's run, a mutant's, a ready check's). A suite's own timeoutMs in qa/suites.* replaces it for that suite",
+      "properties": {
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The mutant registry (MUTANTS only; its old SUITES are read while the project has no qa/suites.*), a path relative to the tree (default: the first that exists of qa/mutants.json, .ts, .mjs)"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "Per suite run, unless the suite gives its own (default 900000)"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "qa plan check (rework U6): the checks on the planner's expectations before the run.",
+      "properties": {
+        "maxMatches": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "At most this many elements one screen expectation may match on one capture (default 20)"
+        }
+      }
+    },
+    "ready": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "qa ready (0.5.0). emptyText: the project's own empty-state phrases (regex sources, case-insensitive), added to the built-in ones the walk check looks for.",
+      "properties": {
+        "emptyText": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "stubs": {
+      "type": "object",
+      "description": "Rung 3 of the evidence ladder (design §6.1): a deterministic stand-in for what varies (a model's answer, a payment provider), as env switches the sandbox sets on every stack verb when the PR's charter names the stub (its `stubs:` line). The key is the stub id (a plain name). An env NAME that looks like a secret is refused: a stub sets a switch, never a credential.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["for", "env"],
+        "properties": {
+          "for": {
+            "type": "string",
+            "description": "What it stands in for, in a person's words (\"the chat model's answer\")"
+          },
+          "env": {
+            "type": "object",
+            "description": "{ \"<ENV NAME>\": \"<non-secret switch value>\" }, set on setup, up, seed, build, serve and down",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "affected": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Affected runs (step 7). ui: file extensions that count as screens' own files for the unmapped rule.",
+      "properties": {
+        "ui": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\.[A-Za-z0-9]+$"
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "qa verify (rework U10, design §13 and §14): the headless Claude sessions it starts for each role. Defaults: mapper haiku 20 min, planner sonnet 30 min, security sonnet 20 min, eyes opus 30 min, judge sonnet 20 min.",
+      "properties": {
+        "mapper": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the mapper's repair round after the prepare check (default haiku, 1200000 ms)",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "\\S",
+              "description": "the model of this role's headless session: an alias (haiku, sonnet, opus) or a full model id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 60000,
+              "description": "how long one call of this role may take before it is killed and the round is handed over (at least 60000)"
+            }
+          }
+        },
+        "planner": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the verifier's plan phase and its plan-check send-back (default sonnet, 1800000 ms)",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "\\S",
+              "description": "the model of this role's headless session: an alias (haiku, sonnet, opus) or a full model id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 60000,
+              "description": "how long one call of this role may take before it is killed and the round is handed over (at least 60000)"
+            }
+          }
+        },
+        "security": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the security review and its write-up (default sonnet, 1200000 ms)",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "\\S",
+              "description": "the model of this role's headless session: an alias (haiku, sonnet, opus) or a full model id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 60000,
+              "description": "how long one call of this role may take before it is killed and the round is handed over (at least 60000)"
+            }
+          }
+        },
+        "eyes": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the eyes pass (default opus, 1800000 ms)",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "\\S",
+              "description": "the model of this role's headless session: an alias (haiku, sonnet, opus) or a full model id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 60000,
+              "description": "how long one call of this role may take before it is killed and the round is handed over (at least 60000)"
+            }
+          }
+        },
+        "judge": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the verifier's judge phase and its report-check send-back (default sonnet, 1200000 ms)",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "\\S",
+              "description": "the model of this role's headless session: an alias (haiku, sonnet, opus) or a full model id"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 60000,
+              "description": "how long one call of this role may take before it is killed and the round is handed over (at least 60000)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

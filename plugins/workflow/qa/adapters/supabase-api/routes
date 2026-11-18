@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+// routes: the routes the Supabase app registers, for the route sweep (adapter contract, STEP 6).
+// Every directory under $QA_ROOT/supabase/functions that holds an index.ts or index.js is one edge
+// function, served at /functions/v1/<dir> and called with POST. Directories whose name starts with
+// '_' (shared code) or '.' are not functions. Prints the JSON array [{ method, path }], sorted by
+// path, as the LAST stdout line. No functions directory prints []. Node stdlib only.
+import fs from 'node:fs';
+import path from 'node:path';
+
+const functions = path.join(process.env.QA_ROOT || '.', 'supabase', 'functions');
+
+let entries;
+try {
+  entries = fs.readdirSync(functions, { withFileTypes: true });
+} catch (error) {
+  if (error.code !== 'ENOENT') {
+    process.stderr.write(`routes: cannot read ${functions} (${error.message})\n`);
+    process.exit(1);
+  }
+  entries = [];
+}
+
+const names = entries
+  .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_') && !entry.name.startsWith('.'))
+  .filter((entry) => ['index.ts', 'index.js'].some((file) => fs.statSync(path.join(functions, entry.name, file), { throwIfNoEntry: false })?.isFile()))
+  .map((entry) => entry.name)
+  .sort();
+
+const rows = names.map((name) => ({ method: 'POST', path: `/functions/v1/${name}` }));
+process.stdout.write(`${JSON.stringify(rows)}\n`);

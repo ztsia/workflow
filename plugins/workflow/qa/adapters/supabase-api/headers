@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+// headers <role|anon>: the request headers that act as that role on the Supabase API (adapter
+// contract, STEP 6). QA_STACK is the JSON of the sandbox's `up` output: apiUrl and anonKey, or the
+// same under env (a key ending SUPABASE_URL, a key matching ANON_KEY or PUBLISHABLE_KEY).
+// anon: the anon key as apikey and bearer token. Any other role: signs in with QA_USER and
+// QA_PASSWORD at <apiUrl>/auth/v1/token and uses the access_token it gets back. Prints
+// { baseUrl, headers } as the LAST stdout line. Failures go to stderr with exit 1. Node stdlib only.
+
+const role = process.argv[2];
+
+function fail(message) {
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+}
+
+if (!role) fail('usage: headers <role|anon>');
+
+let stack;
+try {
+  stack = JSON.parse(process.env.QA_STACK || '{}');
+} catch {
+  fail(`headers ${role}: QA_STACK is not JSON`);
+}
+if (stack === null || typeof stack !== 'object') stack = {};
+
+const env = stack && typeof stack.env === 'object' && stack.env !== null ? stack.env : {};
+const envValue = (test) => {
+  const hit = Object.entries(env).find(([key, value]) => typeof value === 'string' && value && test(key));
+  return hit ? hit[1] : null;
+};
+
+const apiUrl = (typeof stack.apiUrl === 'string' && stack.apiUrl) || envValue((key) => key.endsWith('SUPABASE_URL'));
+const anonKey = (typeof stack.anonKey === 'string' && stack.anonKey) || envValue((key) => /ANON_KEY|PUBLISHABLE_KEY/.test(key));
+
+if (!apiUrl || !anonKey) fail('headers: no Supabase URL or anon key in the sandbox output');
+
+const baseUrl = apiUrl.replace(/\/+$/, '');
+
+if (role === 'anon') {
+  process.stdout.write(`${JSON.stringify({ baseUrl, headers: { apikey: anonKey, authorization: `Bearer ${anonKey}` } })}\n`);
+  process.exit(0);
+}
+
+const email = process.env.QA_USER;
+const password = process.env.QA_PASSWORD;
+if (!email || !password) fail(`headers ${role}: QA_USER/QA_PASSWORD unset`);
+
+let response;
+try {
+  response = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+} catch (error) {
+  fail(`headers ${role}: sign-in failed (${error.message})`);
+}
+if (!response.ok) fail(`headers ${role}: sign-in answered ${response.status}`);
+
+const session = await response.json().catch(() => null);
+if (!session || typeof session.access_token !== 'string' || !session.access_token) {
+  fail(`headers ${role}: sign-in answered no access_token`);
+}
+
+process.stdout.write(`${JSON.stringify({ baseUrl, headers: { apikey: anonKey, authorization: `Bearer ${session.access_token}` } })}\n`);

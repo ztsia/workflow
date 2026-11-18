@@ -1,0 +1,6 @@
+{
+  "type": "stack",
+  "verbs": ["routes", "headers"],
+  "detect": ["supabase/config.toml"],
+  "description": "Supabase API: edge functions as routes; anon and per-role request headers"
+}

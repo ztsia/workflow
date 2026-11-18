@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa route table (qa/routes.table.json)",
+  "description": "One row per route the app serves, for the route sweep. The sweep fires the same bad requests at every row and never knows what a route means. A .ts or .mjs table exports ROUTES with the same rows, and PAGES with the pages (qa ready). Credentials are never values here: a request header is an environment variable name (qa.json routes.headers).",
+  "oneOf": [
+    { "$ref": "#/$defs/rows" },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routes"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "routes": { "$ref": "#/$defs/rows" },
+        "pages": { "$ref": "#/$defs/pages" }
+      }
+    }
+  ],
+  "$defs": {
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/row" }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path"],
+      "properties": {
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "As the app serves it. ':name' is a param; a trailing '/*' matches any rest"
+        },
+        "auth": {
+          "enum": ["public", "signed-in", "role"],
+          "default": "signed-in",
+          "description": "public: anyone. signed-in: any signed-in login. role: only the logins in roles"
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "auth 'role' only: the login roles that may call it"
+        },
+        "params": {
+          "$ref": "#/$defs/values",
+          "description": "Fills ':name' in path. Strings may hold $seed.* tokens"
+        },
+        "otherId": {
+          "$ref": "#/$defs/values",
+          "description": "The same params pointing at a record the caller must not reach"
+        },
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^/" },
+          "description": "Concrete paths to call when path ends '/*' (default: [path])"
+        },
+        "body": {
+          "type": "object",
+          "description": "A body the route accepts. The happy probe sends it; $seed.* tokens resolved"
+        },
+        "happy": {
+          "type": "boolean",
+          "description": "Whether the happy-path probe runs. Default true when body is given or method is GET; false skips it"
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Documentation only: the sweep does not read it"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["auth"], "properties": { "auth": { "const": "role" } } },
+          "then": { "required": ["roles"] }
+        }
+      ]
+    },
+    "pages": {
+      "type": "array",
+      "description": "The screens the app serves. qa ready: every page needs a map entry that reaches it, or a skip reason",
+      "items": { "$ref": "#/$defs/page" }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "As the browser shows it. ':name' is one segment; a trailing '/*' matches any rest"
+        },
+        "screens": {
+          "type": ["string", "array"],
+          "items": { "type": "string" },
+          "description": "Map entries that reach this page by clicks rather than a goto"
+        },
+        "skip": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why no map entry reaches this page; the coverage check lists it and passes it"
+        }
+      }
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean"] }
+    }
+  }
+}

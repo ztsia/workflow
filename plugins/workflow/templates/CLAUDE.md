@@ -54,12 +54,10 @@ From the repo root:
 | `<install>` | Install everything |
 | `<dev>` | The app locally, with its dev tools |
 | `<test>`, `<typecheck>`, `<lint>`, `<format>` | The fast checks a contributor runs before a push |
-| `<security checks>` | The dependency audit, a secret scan and the stack's security lint rules (the `security` skill's stack note), failing on a high or critical result. Runs in CI and in QA's sweep |
-| `<e2e>` | End-to-end tests. Offer an env var that keeps each screenshot as a file (QA's sweep needs it) and one that narrows a long matrix for PR pushes, with the full matrix nightly |
-| `<route sweep>` | Every route in the route table hit with the same bad requests (usually part of `<test:db>`) |
-| `node scripts/mutants.mjs` | The breakage checks: each dangerous edit in `qa/mutants.ts`, made in a worktree, must turn a suite red |
-| `<lived-in journeys>` | The journeys a fresh browser never runs: across a deploy, resume, offline, slow network, large text, a small phone, a year of data |
-| `<diff against main>` | QA's diff: each screen's tree and pixels against the default branch, the scripted visual checks and the metrics flags, into `qa-artifacts/<branch>/diff/index.md` |
+| `<security checks>` | The dependency audit, a secret scan and the stack's security lint rules (the `security` skill's stack note), failing on a high or critical result. Runs in CI and as a QA suite |
+| `<e2e>` | End-to-end tests. Offer one env var that narrows a long matrix for PR pushes, with the full matrix nightly |
+| `qa verify` | QA of the branch before its PR (the `qa` skill): the suites in `qa/suites.*`, the route sweep, the breakage checks in `qa/mutants.*`, each changed screen against the default branch, then the verdict in `qa/<slug>/verdict.md`. `qa` is `"<workflow plugin>/qa/bin/qa"` |
+| `qa ready` | Proves the project's QA setup (`qa.json`, the suites, the map) still works |
 
 ## Layout
 
@@ -69,3 +67,8 @@ From the repo root:
 
 <Where this project departs from the workflow plugin's rules, one line each, with the decision that
 chose it. Empty is fine. A departure from one skill goes in `docs/workflow/<skill>.md` instead.>
+
+<For instance: which slices or changes run the main session on Opus instead of the settings' Sonnet
+(prompts, skills, agent definitions, the hardest slices); a larger context window
+(`autoCompactWindow` in `.claude/settings.json`) when the session also plans ahead, knowing every
+token in it is re-read on every call.>

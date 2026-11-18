@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# build: run the project's npm build script; skip when there is no package.json or no build script.
+set -euo pipefail
+
+if [[ ! -f "$QA_ROOT/package.json" ]]; then
+  echo "skip: no package.json"
+  exit 0
+fi
+cd "$QA_ROOT"
+if ! node -e 'process.exit(JSON.parse(require("fs").readFileSync("package.json", "utf8")).scripts?.build ? 0 : 1)'; then
+  echo "skip: no build script"
+  exit 0
+fi
+exec npm run build
