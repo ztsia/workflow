@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test, { after } from 'node:test';
 import { loadProfile } from '../scripts/lib/profile.mjs';
-import { planCheck } from '../scripts/lib/plan.mjs';
+import { dropFailed, planCheck, planCheckMd } from '../scripts/lib/plan.mjs';
 import { prepareCheck, prepareExit, prepareMd } from '../scripts/lib/prepare.mjs';
 import { readiness } from '../scripts/lib/ready.mjs';
 import { runQa } from '../scripts/lib/run.mjs';
@@ -401,4 +401,23 @@ test('the real CLI: `qa plan check` in suites mode exits 0 for a test that exist
   const out = spawnSync(CLI, ['plan', 'check', '--slug', 'feat-lib'], { cwd: dir, encoding: 'utf8' });
   assert.equal(out.status, 0, `${out.stdout}${out.stderr}`);
   assert.match(out.stdout, /no sandbox/);
+});
+
+// ── charter suite citations in suites mode ───────────────────────────────────
+
+test('plan check: a charter suite citation must name a suite of qa/suites.*; an unknown one is a problem and --drop takes it out', async () => {
+  const dir = makeRepo({ failing: false });
+  const n = { calls: 0 };
+  const V = path.join(dir, 'qa', 'feat-lib');
+  write(dir, 'qa/feat-lib/charter.md', '# Charter — feat-lib\nsecurity: no — x\nstubs: none\n\n- [ch:6] ruff and pytest are clean — axis: regression — by: suite unit, suite nope\n');
+  write(dir, 'qa/feat-lib/expectations.json', '[]');
+  const check = () => planCheck({ mainRoot: dir, repoRoot: dir, profile: loadProfile(dir).profile, slug: 'feat-lib', V, head: git(['rev-parse', 'HEAD'], dir), log: () => {} }, noUp(n));
+  const r = await check();
+  assert.equal(n.calls, 0);
+  assert.equal(r.blocked, null);
+  assert.deepEqual(r.problems.map((p) => [p.name, p.problem]), [['ch:6', 'suite nope is not a suite in qa/suites.*']]);
+  assert.match(planCheckMd(r), /\n## Problems\n- \[ch:6\] suite nope is not a suite in qa\/suites\.\*\n/);
+  dropFailed({ V, check: r });
+  assert.match(fs.readFileSync(path.join(V, 'charter.md'), 'utf8'), /— by: suite unit\n$/);
+  assert.deepEqual((await check()).problems, [], 'the kept citation is a suite, so the check is clean');
 });

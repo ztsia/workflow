@@ -12,6 +12,11 @@
 //   criteriaOf(charterMd) -> { <expectation name>: ['ch:<n>', …] }   from the charter rows `- [ch:<n>] … by: expectation
 //     <name>` (every `expectation <name>` after `by:` counts).
 //   criterionOf(entry, byName) -> entry.criterion, else byName[name] joined by ',', else '-'.
+//   CHARTER SUITES (suite evidence; tests: test/outcomes.test.mjs, test/plan.test.mjs, test/suites-mode.test.mjs): a charter
+//     row's `by: suite <id>` cites the whole suite (verdict.mjs parseCharter: suites). Outside suites mode (suitesmode.mjs
+//     suitesModeApplies false) every such row is a charter problem: 'suite evidence runs only in suites mode (a project
+//     with no screens): name a test instead'. In suites mode each cited id must be a key of the suites loaded from
+//     qa/suites.*, else 'suite <id> is not a suite in qa/suites.*'. Both are charter problems (below).
 //
 //   SCREENS. A screen or url entry is in scope on a map screen when one of its `screens` globs (a glob or a list)
 //   matches the screen's name or a '<name>__<state>' key, at each of its `viewports` (default: every profile
@@ -85,16 +90,21 @@
 //     PlanCheck = { slug, head, sandbox: { name, state: 'up' | 'reused' } | null, blocked, maxMatches
 //       (profile.plan.maxMatches ?? 20), counts: { screen, url, test, doc, route, mutant, other },
 //       problems: [{ index, name, criterion, kind, problem }] (problems of one entry joined by '; ', in plan order),
-//       mutants: [{ index, id, problem }], notes: [string] (the suites note), ms }
+//       then one charter problem per row and problem: { index: null, name: 'ch:<n>', criterion: '-', kind: 'charter',
+//       problem, suites: [<id>] } (the suite ids it names, the ones --drop takes out of the row), mutants: [{ index, id,
+//       problem }], notes: [string] (the suites note), ms }
 //   planCheckMd(check, { dropped = false }) -> the text of V/plan-check.md:
 //     '# Plan check — <slug>', 'head: <sha12> · sandbox <name> (<state>) · at most <max> matching elements per
 //     capture', 'checked: <n> screen · <n> url · <n> test · <n> doc · <n> route · <n> mutant', a 'note: …' line per
 //     note, 'blocked: <why>' when blocked, a blank line, '## Dropped from the plan' (dropped) or '## Problems', then
-//     '- [<name>] <criterion>: <problem>' per problem, or '- none'. Mutant problems follow under '## Mutants
-//     dropped' / '## Mutant problems' as '- mut:<id>: <problem>' (no brackets: they are not criterion rows).
+//     '- [<name>] <criterion>: <problem>' per problem (a charter problem: '- [ch:<n>] <problem>'), or '- none'. Mutant
+//     problems follow under '## Mutants dropped' / '## Mutant problems' as '- mut:<id>: <problem>' (no brackets: they
+//     are not criterion rows).
 //   dropFailed({ V, check }) -> { expectations: n, mutants: n, stubs: n }   rewrites V/expectations.json without the
 //     entries that have problems and V/mutants.json without the mutants that have problems (2-space JSON + newline),
-//     and V/charter.md's `stubs:` line without the stubs that have problems (stubs.mjs withCharterStubs).
+//     and V/charter.md's `stubs:` line without the stubs that have problems (stubs.mjs withCharterStubs). A charter
+//     problem drops its suite citations: each suite id it names is taken out of that row's `by:` field (the row keeps
+//     its other citations; with none left it is the judge's to rule).
 //
 //   STUBS (design §6.1 rung 3; tests: test/stubs.test.mjs 'plan check'): the charter's `stubs:` line names the stubs
 //     the plan needs (stubs.mjs charterStubs). The head sandbox comes up with the declared ones (sandbox.mjs up stubs;
@@ -122,6 +132,7 @@ import {
 } from './tests.mjs';
 import { glob } from './util.mjs';
 import { charterStubs, resolveStubs, withCharterStubs } from './stubs.mjs';
+import { parseCharter } from './verdict.mjs';
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const firstLine = (e) => String(e?.message ?? e).split('\n')[0];
@@ -466,6 +477,10 @@ export async function planCheck(opts, deps = {}) {
   const say = (index, problem) => (found[index] ??= []).push(problem);
   const mutantProblems = [];
   const notes = [];
+  // Charter rows that cite a suite (`by: suite <id>`): see CHARTER SUITES above.
+  const suiteRows = parseCharter(charter).filter((row) => row.suites.length);
+  const charterProblems = [];
+  const charterProblem = (row, problem, suites) => charterProblems.push({ index: null, name: row.id, criterion: '-', kind: 'charter', problem, suites });
 
   // Docs: from git at head, no sandbox.
   for (const { index, entry } of of('doc')) {
@@ -482,6 +497,8 @@ export async function planCheck(opts, deps = {}) {
   const suitesMode = suitesModeApplies({ repoRoot, mainRoot, profile, map: opts.map ?? null }).applies;
   if (suitesMode) {
     for (const { index } of of('screen', 'url', 'route')) say(index, 'suites mode: this project has no screens and nothing serves an app, so a screen, url or route expectation cannot run: name a test or a doc');
+  } else {
+    for (const row of suiteRows) charterProblem(row, 'suite evidence runs only in suites mode (a project with no screens): name a test instead', row.suites);
   }
   const check = async () => {
     try {
@@ -502,8 +519,13 @@ export async function planCheck(opts, deps = {}) {
           }
         }
         // Tests and the mutants' kill tests: the runners' own list modes.
-        const loaded = of('test').length || proposals.length ? await loadSuites({ root: desc.dir, profile }) : null;
+        const loaded = of('test').length || proposals.length || (suitesMode && suiteRows.length) ? await loadSuites({ root: desc.dir, profile }) : null;
         if (loaded?.note) notes.push(loaded.note);
+        if (loaded && suitesMode) {
+          for (const row of suiteRows) {
+            for (const id of row.suites) if (!Object.hasOwn(loaded.suites, id)) charterProblem(row, `suite ${id} is not a suite in qa/suites.*`, [id]);
+          }
+        }
         for (const { index, entry } of of('test')) {
           const r = await d.resolveTest({ entry, suites: loaded.suites, dir: desc.dir, profile, mainRoot, vars, logDir });
           log(`plan check: test ${nameOf(entry, index)}: ${r.ok ? `ok (${r.how})` : r.problem}`);
@@ -555,7 +577,7 @@ export async function planCheck(opts, deps = {}) {
       }
     }
   };
-  if (suitesMode && (of('test').length > 0 || proposals.length > 0)) {
+  if (suitesMode && (of('test').length > 0 || proposals.length > 0 || suiteRows.length > 0)) {
     await withHeadWorktree({ repoRoot, mainRoot, headSha: head, slug: `${slug}-plan` }, async (dir) => {
       desc = { dir, name: null, appUrl: null, port: '', seedStartedAt: null, reused: true, slug };
       await check();
@@ -570,9 +592,12 @@ export async function planCheck(opts, deps = {}) {
     if (desc) await check();
   }
 
-  const problems = indexed.filter((x) => found[x.index]).map(({ index, entry, kind }) => ({
-    index, name: nameOf(entry, index), criterion: criterionOf(entry, byName), kind, problem: found[index].join('; '),
-  }));
+  const problems = [
+    ...indexed.filter((x) => found[x.index]).map(({ index, entry, kind }) => ({
+      index, name: nameOf(entry, index), criterion: criterionOf(entry, byName), kind, problem: found[index].join('; '),
+    })),
+    ...charterProblems,
+  ];
   return {
     slug, head, sandbox: desc ? { name: desc.name, state: desc.reused ? 'reused' : 'up' } : null, blocked, maxMatches, counts,
     problems, mutants: mutantProblems, stubs: stubProblems, notes, ms: Date.now() - started,
@@ -591,7 +616,7 @@ export function planCheckMd(check, { dropped = false } = {}) {
     ...(check.blocked ? [`blocked: ${oneLine(check.blocked)} (nothing that needs the head sandbox was checked)`] : []),
     '',
     dropped ? '## Dropped from the plan' : '## Problems',
-    ...(check.problems.length ? check.problems.map((p) => `- [${p.name}] ${p.criterion}: ${oneLine(p.problem)}`) : ['- none']),
+    ...(check.problems.length ? check.problems.map((p) => (p.kind === 'charter' ? `- [${p.name}] ${oneLine(p.problem)}` : `- [${p.name}] ${p.criterion}: ${oneLine(p.problem)}`)) : ['- none']),
   ];
   if (check.mutants?.length) {
     lines.push('', dropped ? '## Mutants dropped' : '## Mutant problems', ...check.mutants.map((m) => `- mut:${m.id}: ${oneLine(m.problem)}`));
@@ -605,7 +630,7 @@ export function planCheckMd(check, { dropped = false } = {}) {
 export function dropFailed({ V, check }) {
   const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
   const expectFile = path.join(V, 'expectations.json');
-  const drop = new Set(check.problems.map((p) => p.index));
+  const drop = new Set(check.problems.filter((p) => p.kind !== 'charter').map((p) => p.index));
   let expectations = 0;
   if (drop.size) {
     const list = readJson(expectFile);
@@ -623,6 +648,10 @@ export function dropFailed({ V, check }) {
   let stubs = 0;
   const charterFile = path.join(V, 'charter.md');
   const badStubs = new Set((check.stubs ?? []).map((x) => x.id));
+  const badSuites = check.problems.filter((p) => p.kind === 'charter');
+  if (badSuites.length && fs.existsSync(charterFile)) {
+    fs.writeFileSync(charterFile, withoutSuiteCitations(fs.readFileSync(charterFile, 'utf8'), badSuites));
+  }
   if (badStubs.size && fs.existsSync(charterFile)) {
     const text = fs.readFileSync(charterFile, 'utf8');
     const kept = charterStubs(text).filter((id) => !badStubs.has(id));
@@ -630,4 +659,24 @@ export function dropFailed({ V, check }) {
     stubs = badStubs.size;
   }
   return { expectations, mutants, stubs };
+}
+
+// The charter with the suite citations that have problems taken out of their rows' `by:` fields.
+function withoutSuiteCitations(text, problems) {
+  return text.split('\n').map((line) => {
+    const id = /^- \[(ch:\d+)\] /.exec(line)?.[1];
+    const suites = problems.filter((p) => p.name === id).flatMap((p) => p.suites ?? []);
+    if (!suites.length) return line;
+    return line.replace(/( — by: )(.*?)(?= — |$)/, (whole, lead, by) => `${lead}${suites.reduce(dropSuite, by)}`).trimEnd();
+  }).join('\n');
+}
+
+// A by: field without `suite <id>`: with its separator (',', ';', '+' or 'and') after it, else before it.
+function dropSuite(by, id) {
+  const cite = `\\bsuites?\\s+${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9._-])`;
+  const sep = '\\s*(?:,|;|\\+|\\band\\b)\\s*';
+  for (const re of [new RegExp(`${cite}${sep}`), new RegExp(`${sep}${cite}`), new RegExp(cite)]) {
+    if (re.test(by)) return by.replace(re, '');
+  }
+  return by;
 }

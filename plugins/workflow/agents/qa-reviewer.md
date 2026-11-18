@@ -71,7 +71,7 @@ reported, never a reason to REJECT. A spec criterion is never advisory.
 | 1 | the real screen, through a map entry | `expectation <name>` (a text entry) or `screen <screen>/<state>` | a page with the feature on it |
 | 2 | a fixture screen: a dev-only route the project serves in the sandbox that renders the component from fixed inputs (a gallery, a harness page) | as rung 1 | a component whose real path varies: every chart kind from fixed data |
 | 3 | the real path with a stub the sandbox already runs: a fixed stand-in for what varies (a model's answer, a payment provider, the clock) | as rung 1 | the chat answering a fixed question with a fixed chart |
-| 4 | a named test | `expectation <name>` (a `test` entry) | a rule no screen shows: a limit, a refusal, two schemas agreeing, a tap the walk cannot make |
+| 4 | a named test; in suites mode, a whole suite | `expectation <name>` (a `test` entry); `suite <id>` | a rule no screen shows: a limit, a refusal, two schemas agreeing, a tap the walk cannot make; the suite passing as a whole |
 | 5 | a route probe | `expectation <name>` (a `route` entry) | an API answer |
 | 6 | a doc check | `expectation <name>` (a `doc` entry) | what the docs must say |
 | 7 | manual | `manual — ask: <question for the user>` | what the sandbox cannot observe: a real third-party key, a phone in hand, page height, a person's judgement |
@@ -84,6 +84,12 @@ stub qa.json does not declare is a plan-check problem and is never set. When a r
 that is missing, take the next rung that works, say in its reason what would prove it better, and add a gaps line. `eyes` (a person's look at a captured
 screen, the eyes pass) is rung 1 too. A row the evidence cannot reach on any rung is `manual`, with the one question
 whose answer settles it ("Export once with the real key: did the file arrive?"), never a row left to guess.
+
+**A whole suite is rung 4 in suites mode** (no map entries and nothing serves an app: `qa run` then runs each suite
+in `qa/suites.*` whole on the head commit, a deciding row `suite:<id>` each). A criterion that a whole suite passing
+proves (the tests pass, lint is clean, every acceptance criterion of a contract has a passing test) cites it:
+`by: suite <id>`, several as `suite unit, suite lint`, beside expectations as `suite unit; expectation <name>`. Never
+`manual` for what a listed suite runs. Outside suites mode suites never run whole: name a test, or take the next rung.
 
 **Write `V/charter.md`** exactly in this form (one `- [ch:<n>]` row per case, no ` — ` inside a case or a reason):
 
@@ -102,7 +108,8 @@ The `stubs:` line is `none`, or the declared stub ids the rung-3 rows use: `stub
 answer` (ids joined by `, `, then ` — ` and what they stand in for). It sits right under `security:`.
 
 `by:` is `expectation <name>` (a row of expectations.json), `screen <screen>/<state>` (a map entry the runner
-captures; its tour, checks and tree diff are the proof), `eyes`, or `manual — ask: <question>`. ` — advisory` is
+captures; its tour, checks and tree diff are the proof), `suite <id>` (suites mode only: the suite run whole), `eyes`,
+or `manual — ask: <question>`. ` — advisory` is
 always last.
 
 **The `security:` line** is the line `qa security --from <base>` prints: `yes` when the diff touches a path
@@ -311,7 +318,7 @@ routes, metrics, console lines and eyes notes are findings for the report, never
   Write Blocker only for the Blocker list: the head crashed or showed an error page, a route answered 5xx or a
   stack trace or let in someone who must not get in, a High security finding.
 - **Tests and docs.** A `test` or `doc` expectation's row is ruled by script; keep it verbatim. A charter row
-  `by: expectation <name>` takes that row's status. Never rule a case PASS because a test is said to pass
+  `by: expectation <name>` takes that row's status, and `by: suite <id>` the status of the row `suite:<id>`. Never rule a case PASS because a test is said to pass
   anywhere else (the spec, the PR, the builder's report).
 - **Spec cases.** `- none (…)` as in the draft, or `- <path>: <why it cannot be data>` from the plan's gaps.
 - **Gaps.** Every draft gap kept, same ids, the `BLOCKED — …` rows included; never drop one. A fact you needed
